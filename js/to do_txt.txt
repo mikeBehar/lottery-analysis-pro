@@ -1,0 +1,6 @@
+no load button for latter data
+this is console error
+18:13:22.862 app.js:42 App initialized successfully
+18:13:23.347 index.ts-c8a308e7.js:1 [Long Running Recorder] Content script initialised
+18:13:23.365 index.ts-c8a308e7.js:3 [Long Running Recorder] Recorder disabled
+20:10:13.245 (index):1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.

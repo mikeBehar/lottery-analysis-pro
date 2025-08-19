@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Lottery Analysis Pro</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <header>
+    <h1>Lottery Analysis Pro <span class="version">v1.0.0</span></h1>
+    <input type="file" id="csvUpload" accept=".csv">
+  </header>
+
+<div class="control-panel">
+  <input type="file" id="csvUpload" accept=".csv">
+  <button id="analyzeBtn" disabled>ANALYZE</button>
+</div>
+
+  <div class="panels">
+    <!-- Energy Signature Panel -->
+    <section id="energy-panel">
+      <h2>Energy Signature Analysis</h2>
+      <div id="energy-results"></div>
+    </section>
+
+    <!-- Machine Learning Panel -->
+    <section id="ml-panel">
+      <h2>AI Predictions <span id="ml-confidence"></span></h2>
+      <div id="ml-results"></div>
+      <select id="ml-model">
+        <option value="lstm">LSTM Sequence</option>
+        <option value="kmeans">Cluster Analysis</option>
+      </select>
+    </section>
+
+    <!-- Strategy Builder -->
+    <section id="strategy-builder">
+      <h2>Custom Strategy</h2>
+      <div id="formula-builder"></div>
+      <button id="save-strategy">Save Strategy</button>
+    </section>
+  </div>
+
+  <script src="js/utils.js"></script>
+  <script src="js/ml.js"></script>
+  <script src="js/strategy.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html> 
