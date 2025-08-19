@@ -1,0 +1,23 @@
+{
+  "name": "lottery-analysis-pro",
+  "version": "1.0.0",
+  "description": "/lottery-analysis-pro/\r ├── index.html                 # Main HTML entry point\r ├── styles/\r │   └── main.css               # All CSS styles\r ├── js/\r │   ├── app.js                 # Core application logic (v1.0.1)\r │   ├── ml.js                  # Machine learning functions (v1.0.0)\r │   ├── strategy.js            # Strategy builder (v1.0.2)\r │   └── utils.js               # Analytical utilities (v1.0.2)\r ├── data/                      # CSV storage directory\r │   └── uploaded/              # Processed CSV files\r └── README.md",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mikeBehar/lottery-analysis-pro.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mikeBehar/lottery-analysis-pro/issues"
+  },
+  "homepage": "https://github.com/mikeBehar/lottery-analysis-pro#readme",
+  "devDependencies": {
+    "eslint": "^9.33.0"
+  }
+}
