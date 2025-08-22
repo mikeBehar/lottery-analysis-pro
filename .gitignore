@@ -43,3 +43,8 @@ Thumbs.db
 # ==================== DATA (Optional) ==================== #
 # Uncomment if you want to ignore uploaded CSV data
 # /data/uploaded/*
+
+# ==================== PROJECT SPECIFIC ==================== #
+.history/
+*.code-workspace
+test-ml-integration.js

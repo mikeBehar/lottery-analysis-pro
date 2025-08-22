@@ -1,57 +1,69 @@
 /**
- * UTILITY FUNCTIONS FOR LOTTERY ANALYSIS 
- * Version: 1.0.1 | Last Updated: 2023-11-16
+ * LOTTERY ANALYSIS UTILITIES
+ * Version: 1.3.0 | Updated: 2025-08-20 03:45 PM EST
  */
 
-// ==================== ENERGY CALCULATION ==================== //
-/**
- * Calculates energy signature for lottery numbers
- * @param {number[]} numbers - Array of numbers (1-69)
- * @returns {Object[]} Energy data for each number
- * @version 1.0.1 | Updated: 2023-11-16
- */
+// =============== ENERGY CALCULATION =============== //
 function calculateEnergy(numbers) {
   return numbers.map(num => ({
     number: num,
-    isPrime: isPrime(num),
+    isPrime: isPrime(num) ? 1 : 0,
     digitalRoot: getDigitalRoot(num),
-    mod5: num % 5 * 0.2,
+    mod5: (num % 5) * 0.2,
     gridScore: getGridPositionScore(num),
-    energy: 0 // Placeholder for weighted sum
+    energy: 0
   }));
 }
 
-// ==================== SUPPORTING FUNCTIONS ==================== //
-/** 
- * Checks if a number is prime 
- * @version 1.0.0 | Created: 2023-11-15
- */
+function displayEnergyResults(energyData, container) {
+  if (!energyData || energyData.length === 0) {
+    container.innerHTML = '<p>No energy data available</p>';
+    return;
+  }
+
+  const sorted = [...energyData].sort((a, b) => b.energy - a.energy);
+  const topNumbers = sorted.slice(0, 15);
+  
+  container.innerHTML = topNumbers.map(num => `
+    <div class="number-card" data-energy="${num.energy.toFixed(2)}">
+      <div class="number">${num.number}</div>
+      <div class="energy-score">${num.energy.toFixed(2)}</div>
+      <div class="energy-breakdown">
+        Prime: ${num.isPrime ? '✓' : '✗'} | 
+        Root: ${num.digitalRoot} | 
+        Mod5: ${(num.mod5 / 0.2).toFixed(0)} | 
+        Grid: ${num.gridScore.toFixed(1)}
+      </div>
+    </div>
+  `).join('');
+}
+
+// =============== SUPPORTING FUNCTIONS =============== //
 function isPrime(num) {
   if (num <= 1) return false;
-  for (let i = 2; i <= Math.sqrt(num); i++) {
-    if (num % i === 0) return false;
+  if (num <= 3) return true;
+  if (num % 2 === 0 || num % 3 === 0) return false;
+  for (let i = 5; i * i <= num; i += 6) {
+    if (num % i === 0 || num % (i + 2) === 0) return false;
   }
   return true;
 }
 
-/** 
- * Calculates digital root (recursive digit sum) 
- * @version 1.0.0 | Created: 2023-11-15
- */
 function getDigitalRoot(num) {
   return num - 9 * Math.floor((num - 1) / 9);
 }
 
-/** 
- * Scores spatial position on a 5x14 grid 
- * @version 1.0.1 | Updated: 2023-11-16
- */
 function getGridPositionScore(num) {
-  const grid = [
-    [0.3, 0.5, 0.7, 0.5, 0.3],
-    // ... expanded grid definition
+  const GRID = [
+    [0.3, 0.5, 0.7, 0.9, 1.0, 0.9, 0.7, 0.5, 0.3, 0.5, 0.7, 0.9, 1.0, 0.9],
+    [0.5, 0.7, 0.9, 1.0, 0.9, 0.7, 0.5, 0.7, 0.9, 1.0, 0.9, 0.7, 0.5, 0.7],
+    [0.7, 0.9, 1.0, 0.9, 0.7, 0.5, 0.3, 0.5, 0.7, 0.9, 1.0, 0.9, 0.7, 0.5],
+    [0.5, 0.7, 0.9, 1.0, 0.9, 0.7, 0.5, 0.7, 0.9, 1.0, 0.9, 0.7, 0.5, 0.7],
+    [0.3, 0.5, 0.7, 0.9, 1.0, 0.9, 0.7, 0.5, 0.3, 0.5, 0.7, 0.9, 1.0, 0.9]
   ];
+  
+  if (num < 1 || num > 70) return 0.5;
   const row = Math.floor((num - 1) / 14);
   const col = (num - 1) % 14;
-  return grid[row][col];
+  return GRID[row]?.[col] ?? 0.5;
 }

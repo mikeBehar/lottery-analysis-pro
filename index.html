@@ -2,44 +2,45 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Lottery Analysis Pro</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lottery Analysis Pro v2.1.0</title>
   <link rel="stylesheet" href="styles/main.css">
-  <!-- Add PapaParse CSV library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+  
 </head>
 <body>
   <header>
-    <h1>Lottery Analysis Pro <span class="version">v1.0.0</span></h1>
+    <h1>Lottery Analysis Pro <span class="version">v2.1.0</span></h1>
+    <p>Advanced lottery number analysis with energy signatures and AI predictions</p>
   </header>
 
   <div class="control-panel">
     <label for="csvUpload" class="upload-label">
       📁 Upload Lottery CSV
+      <input type="file" id="csvUpload" accept=".csv" aria-label="Upload CSV file">
     </label>
-    <input type="file" id="csvUpload" accept=".csv">
     <button id="analyzeBtn" disabled>ANALYZE</button>
   </div>
 
   <div class="panels">
-    <!-- Energy Signature Panel -->
     <section id="energy-panel" class="panel">
-      <h2>Energy Signature Analysis</h2>
-      <div id="energy-results"></div>
+      <h2>⚡ Energy Signature Analysis</h2>
+      <div id="energy-results" class="results-container"></div>
     </section>
 
-    <!-- Machine Learning Panel -->
     <section id="ml-panel" class="panel">
-      <h2>AI Predictions <span id="ml-confidence"></span></h2>
-      <div id="ml-results"></div>
-      <select id="ml-model">
-        <option value="lstm">LSTM Sequence</option>
-        <option value="kmeans">Cluster Analysis</option>
-      </select>
+      <h2>🤖 AI Predictions</h2>
+      <div id="ml-results" class="results-container"></div>
     </section>
 
-    <!-- Strategy Builder -->
+    <section id="recommendations-panel" class="panel">
+      <h2>🎯 Recommendations</h2>
+      <div id="recommendations" class="results-container"></div>
+    </section>
+
     <section id="strategy-builder" class="panel">
-      <h2>Custom Strategy</h2>
+      <h2>⚙️ Custom Strategy</h2>
       <div id="formula-builder"></div>
       <button id="save-strategy">Save Strategy</button>
     </section>
