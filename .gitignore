@@ -1,13 +1,14 @@
 # Dependencies
- /node_modules
- 
- # Log files
- npm-debug.log*
- yarn-debug.log*
- yarn-error.log*
- 
- # Optional editor directories
- .vscode/
+node_modules/
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Optional editor directories
+.vscode/
+js/lottery-analysis-pro.code-workspace
 
 # History files
 .history/
