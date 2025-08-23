@@ -1,50 +1,10 @@
-# Lottery Analysis Pro - Git Ignore Rules
-# Version: 1.0.0 | Created: 2023-11-20
-
-# ==================== DEPENDENCIES ==================== #
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# ==================== OS GENERATED ==================== #
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# ==================== EDITOR/IDE ==================== #
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# ==================== RUNTIME ==================== #
-*.tmp
-*.temp
-*.log
-
-# ==================== ENVIRONMENT ==================== #
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# ==================== BUILD OUTPUTS ==================== #
-/dist/
-/build/
-/coverage/
-
-# ==================== DATA (Optional) ==================== #
-# Uncomment if you want to ignore uploaded CSV data
-# /data/uploaded/*
-
-# ==================== PROJECT SPECIFIC ==================== #
-.history/
-*.code-workspace
-test-ml-integration.js
+ # Dependencies
+ /node_modules
+ 
+ # Log files
+ npm-debug.log*
+ yarn-debug.log*
+ yarn-error.log*
+ 
+ # Optional editor directories
+ .vscode/
