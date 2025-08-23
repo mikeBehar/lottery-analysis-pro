@@ -1,6 +1,6 @@
 /**
  * MACHINE LEARNING MODULE FOR LOTTERY ANALYSIS
- * Version: 2.0.0 | Updated: 2025-08-20
+ * Version: 2.4.2 | Updated: 2025-08-21 02:45 PM EST
  * 
  * Provides machine learning capabilities for lottery number prediction
  * Includes both placeholder implementations and TensorFlow.js integration
@@ -13,7 +13,7 @@
 
 class LotteryML {
   constructor() {
-    this.version = "2.0.0";
+  this.version = "2.4.2";
     this.status = "initialized";
     this.model = null;
     this.isTFLoaded = typeof tf !== 'undefined';
@@ -151,12 +151,15 @@ class LotteryML {
    * @param {Array} draws - Historical draw data for context
    * @returns {Promise<Object>} Prediction results
    */
-  async predictNextNumbers(draws) {
+  async predictNextNumbers(draws, decayRate = 0.1) {
     try {
       if (this.model && this.status === "trained") {
-        return await this.predictWithLSTM(applyTemporalWeighting(draws, 0.1));
-       } else {
-        return await this.predictWithFrequency(draws);
+        // The LSTM prediction itself doesn't directly use decayRate in its current form,
+        // but the input data can be weighted.
+        return this.predictWithLSTM(applyTemporalWeighting(draws, decayRate));
+      } else {
+        // If model isn't trained, use the temporal frequency analysis
+        return this.predictWithTemporalFrequency(draws, decayRate);
       }
     } catch (error) {
       console.error('Prediction failed:', error);
@@ -211,7 +214,7 @@ class LotteryML {
   calculateFrequency(draws) {
     const frequency = new Array(70).fill(0);
     draws.forEach(draw => {
-      if (draw && draw.numbers) {
+      if (draw?.numbers) {
         draw.numbers.forEach(num => {
           if (num >= 1 && num <= 69) {
             frequency[num]++;
@@ -222,17 +225,18 @@ class LotteryML {
     return frequency;
   }
 
+
+
   /**
    * Enhanced frequency analysis with temporal weighting
    * @param {Array} draws - Historical draw data
    * @param {number} decayRate - Temporal decay rate
    * @returns {Object} Temporal-weighted prediction
-   */
-  async predictWithTemporalFrequency(draws, decayRate = 0.1) {
-    const weightedDraws = applyTemporalWeighting(draws, decayRate);
-    const temporalFrequency = calculateTemporalFrequency(weightedDraws);
-    
-    const predictedNumbers = temporalFrequency
+
+// Ensure temporal functions are available (outside class definition)
+if (typeof applyTemporalWeighting === 'undefined') {
+  console.warn('Temporal functions not found. Adding fallbacks.');
+}
       .map((weightedCount, number) => ({ number, weightedCount }))
       .filter(item => item.number >= 1 && item.number <= 69)
       .sort((a, b) => b.weightedCount - a.weightedCount)

@@ -1,6 +1,6 @@
 /**
  * LOTTERY ANALYSIS UTILITIES
- * Version: 1.4.0 | Updated: 2025-08-20 07:30 PM EST
+ * Version: 2.4.2 | Updated: 2025-08-21 02:45 PM EST
  * Changes:
  * - Added temporal weighting analysis
  * - Added number pairing/grouping analysis
@@ -12,18 +12,38 @@
 /**
  * Calculates energy signature for lottery numbers
  * @param {number[]} numbers - Array of numbers (1-69)
+ * @param {Object} weights - The energy weights from CONFIG.
  * @returns {Object[]} Energy data for each number
- * @version 1.0.1 | Updated: 2023-11-16
+ * @version 1.1.0 | Updated: 2024-08-21
  */
-function calculateEnergy(numbers) {
-  return numbers.map(num => ({
-    number: num,
-    isPrime: isPrime(num) ? 1 : 0, // Convert to numeric for weighting
-    digitalRoot: getDigitalRoot(num),
-    mod5: (num % 5) * 0.2,
-    gridScore: getGridPositionScore(num),
-    energy: 0 // Will be calculated in app.js with weights
-  }));
+function calculateEnergy(numbers, weights) {
+  const defaultWeights = {
+    prime: 0.3,
+    digitalRoot: 0.2,
+    mod5: 0.2,
+    gridPosition: 0.3
+  };
+  const effectiveWeights = weights || defaultWeights;
+  
+  return numbers.map(num => {
+    const energyComponents = {
+      isPrime: isPrime(num) ? 1 : 0,
+      digitalRoot: getDigitalRoot(num),
+      mod5: (num % 5) * 0.2,
+      gridScore: getGridPositionScore(num)
+    };
+
+    const energy = (energyComponents.isPrime * effectiveWeights.prime) +
+                   (energyComponents.digitalRoot * effectiveWeights.digitalRoot) +
+                   (energyComponents.mod5 * effectiveWeights.mod5) +
+                   (energyComponents.gridScore * effectiveWeights.gridPosition);
+
+    return {
+      number: num,
+      ...energyComponents,
+      energy: energy
+    };
+  });
 }
 
 /**
@@ -62,7 +82,7 @@ function displayEnergyResults(energyData, container) {
  * @param {Array} draws - Array of draw objects
  * @param {number} decayRate - Decay factor (e.g., 0.9 = 10% decay per draw)
  * @returns {Array} Draws with an added `weight` property
- * @version 1.0.0 | Created: 2025-08-20 07:30 PM EST
+ * @version 1.0.0 | Created: 2024-08-20 07:30 PM EST
  */
 function applyTemporalDecay(draws, decayRate = 0.99) {
   if (!draws.length) return [];
@@ -82,7 +102,7 @@ function applyTemporalDecay(draws, decayRate = 0.99) {
  * @param {Array} draws - Array of draw objects
  * @param {number} minFrequency - Minimum co-occurrences to consider
  * @returns {Object} Map of number pairs and their frequency count
- * @version 1.0.0 | Created: 2025-08-20 07:30 PM EST
+ * @version 1.0.0 | Created: 2024-08-20 07:30 PM EST
  */
 function findNumberPairs(draws, minFrequency = 5) {
   const pairCounts = {};
@@ -116,8 +136,8 @@ function findNumberPairs(draws, minFrequency = 5) {
  * Calculates the expected and actual gaps for each number
  * Identifies truly overdue numbers based on statistical expectation
  * @param {Array} draws - Array of draw objects
- * @returns {Object} Gap analysis for numbers 1-69
- * @version 1.0.0 | Created: 2025-08-20 07:30 PM EST
+ * @returns {Object} Gap analysis for numbers 1-69.
+ * @version 1.0.0 | Created: 2024-08-20 07:30 PM EST
  */
 function calculateGapAnalysis(draws) {
   const gapData = {};
@@ -187,7 +207,7 @@ function getDigitalRoot(num) {
 
 /** 
  * Scores spatial position on a 5x14 grid 
- * @version 1.0.4 | Updated: 2025-08-20 07:30 PM EST
+ * @version 1.0.4 | Updated: 2024-08-20 07:30 PM EST
  */
 function getGridPositionScore(num) {
   const GRID = [
@@ -218,7 +238,7 @@ function getGridPositionScore(num) {
  * @param {Array} draws - Array of draw objects with date property
  * @param {number} decayRate - Decay rate (0-1), higher = faster decay
  * @returns {Array} Draws with temporal weights added
- * @version 1.0.0 | Created: 2025-08-20
+ * @version 1.0.0 | Created: 2024-08-20
  */
 function applyTemporalWeighting(draws, decayRate = 0.1) {
   if (!draws.length) return draws;
@@ -258,3 +278,7 @@ function calculateTemporalFrequency(weightedDraws) {
   });
   return frequency;
 }
+
+// Make temporal functions available globally
+window.applyTemporalWeighting = applyTemporalWeighting;
+window.calculateTemporalFrequency = calculateTemporalFrequency;

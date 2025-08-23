@@ -1,6 +1,6 @@
 /**
  * STRATEGY MANAGER
- * Version: 2.0.0 | Updated: 2025-08-20 02:30 PM EST
+ * Version: 2.4.2 | Updated: 2025-08-21 02:45 PM EST
  * Complete strategy management with localStorage persistence
  */
 
@@ -8,7 +8,7 @@ class Strategy {
   constructor(name, weights) {
     this.name = name;
     this.weights = weights;
-    this.version = "2.0.0";
+  this.version = "2.4.2";
     this.created = new Date().toISOString();
   }
 

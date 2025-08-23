@@ -1,7 +1,6 @@
 /**
  * LOTTERY ANALYSIS PRO - CORE APPLICATION
- * Version: 2.4.1 | Last Updated: 2024-08-20 08:15 PM EST
- * Fix: Corrected function definition order
+ * Version: 2.4.2 | Last Updated: 2025-08-21 02:45 PM EST
  */
 
 (function() {
@@ -21,7 +20,6 @@
       medium: 0.1,
       high: 0.2,
       very_high: 0.3
-     }
     },
     analysisMethods: ['energy', 'frequency', 'ml', 'combined'],
     backtestSettings: {
@@ -61,13 +59,21 @@
   };
 
   // ==================== UTILITY FUNCTIONS ==================== //
-  function readFile(file) {
+  function readFileContent(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => resolve(e.target.result);
       reader.onerror = () => reject(new Error('Failed to read file'));
       reader.readAsText(file);
     });
+  }
+
+  function validateAndGetFile(event) {
+    const file = event.target.files[0];
+    if (!file) {
+      logError('No file selected for upload');
+    }
+    return file;
   }
 
   function showError(title, error) {
@@ -250,7 +256,7 @@
 
   async function handleFileUpload(event) {
     try {
-      const file = event.target.files[0];
+      const file = validateAndGetFile(event);
       if (!file) return;
 
       if (!file.name.endsWith('.csv')) {
@@ -258,13 +264,13 @@
       }
 
       showProgress('Parsing CSV file...');
-      const content = await readFile(file);
+      const content = await readFileContent(file);
       await parseCSVWithPapaParse(content);
       hideProgress();
       
     } catch (error) {
       hideProgress();
-      showError('File upload failed', error);
+      logError('File upload failed', error);
       resetFileInput();
     }
   }
@@ -277,49 +283,55 @@
         throw new Error('Please upload CSV file first');
       }
 
-      // Start timing
-      const analysisStartTime = Date.now();
-      showProgress('Analyzing data...');
-      console.log('Running', state.currentMethod, 'analysis on', state.draws.length, 'draws...');
-      
-      const allNumbers = Array.from({length: 69}, (_, i) => i + 1);
-      let energyData = calculateEnergy(allNumbers);
-      
-      // [NOTE] This block seems to recalculate energy. It might be redundant if calculateEnergy already does this.
-      // For now, leaving as is.
-      energyData = energyData.map(num => ({
-        ...num,
-        energy: (num.isPrime * CONFIG.energyWeights.prime) +
-                (num.digitalRoot * CONFIG.energyWeights.digitalRoot) +
-                (num.mod5 * CONFIG.energyWeights.mod5) +
-                (num.gridScore * CONFIG.energyWeights.gridPosition)
-      }));
-
-      const mlPrediction = await getMLPrediction();
-      const backtestResults = await runComprehensiveBacktesting();
-      state.backtestResults = backtestResults;
-
-      // End timing and calculate duration
-      const analysisTime = Date.now() - analysisStartTime;
-      const analysisTimeSeconds = (analysisTime / 1000).toFixed(1);
-      console.log(`Analysis completed in ${analysisTimeSeconds} seconds`);
-      
-      // Add timing to display
-      if (state.backtestResults.available) {
-        state.backtestResults.analysisTime = analysisTimeSeconds;
-      }
-
-      displayResults(energyData, mlPrediction, backtestResults);
+      const analysisResults = await executeCompleteAnalysis();
+      displayAnalysisResults(analysisResults);
       hideProgress();
 
     } catch (error) {
       hideProgress();
-      showError('Analysis failed', error);
+      logError('Analysis failed', error);
+    }
+  }
+
+  async function executeCompleteAnalysis() {
+    const analysisStartTime = Date.now();
+    showProgress('Analyzing data...');
+    console.log('Running', state.currentMethod, 'analysis on', state.draws.length, 'draws...');
+    
+    const allNumbers = Array.from({length: 69}, (_, i) => i + 1);
+    const energyData = calculateEnergy(allNumbers, CONFIG.energyWeights);
+
+    const mlPrediction = await getMLPrediction(state.draws, state.decayRate);
+    const backtestResults = await runComprehensiveBacktesting(state.decayRate);
+    state.backtestResults = backtestResults;
+
+    // Calculate and add timing information
+    const analysisTime = calculateAnalysisTime(analysisStartTime);
+    if (state.backtestResults.available) {
+      state.backtestResults.analysisTime = analysisTime.seconds;
+    }
+
+    return { energyData, mlPrediction, backtestResults, analysisTime };
+  }
+
+  function calculateAnalysisTime(startTime) {
+    const analysisTime = Date.now() - startTime;
+    const analysisTimeSeconds = (analysisTime / 1000).toFixed(1);
+    console.log(`Analysis completed in ${analysisTimeSeconds} seconds`);
+    return { milliseconds: analysisTime, seconds: analysisTimeSeconds };
+  }
+
+  function logError(title, error = null) {
+    const timestamp = new Date().toISOString();
+    if (error) {
+      console.error(`[${timestamp}] Lottery Analysis Error: ${title}`, error);
+    } else {
+      console.error(`[${timestamp}] Lottery Analysis Error: ${title}`);
     }
   }
 
   // ==================== COMPREHENSIVE BACKTESTING ==================== //
-  async function runComprehensiveBacktesting() {
+  async function runComprehensiveBacktesting(decayRate) {
     if (state.draws.length < CONFIG.backtestSettings.initialTrainingSize + CONFIG.backtestSettings.testWindowSize) {
       return {
         available: false,
@@ -348,7 +360,7 @@
         const nextDraw = testData[j + 1];
         
         const historicalData = [...trainingData, ...testData.slice(0, j + 1)];
-        const prediction = await getPredictionForBacktest(historicalData);
+        const prediction = await getPredictionForBacktest(historicalData, decayRate);
         
         const matchedNumbers = nextDraw.numbers.filter(num => prediction.numbers.includes(num));
         const hitCount = matchedNumbers.length;
@@ -375,32 +387,24 @@
     return results;
   }
 
-  async function getPredictionForBacktest(draws) {
+  async function getPredictionForBacktest(draws, decayRate) {
     const allNumbers = Array.from({length: 69}, (_, i) => i + 1);
-    let energyData = calculateEnergy(allNumbers);
-    
-    energyData = energyData.map(num => ({
-      ...num,
-      energy: (num.isPrime * CONFIG.energyWeights.prime) +
-              (num.digitalRoot * CONFIG.energyWeights.digitalRoot) +
-              (num.mod5 * CONFIG.energyWeights.mod5) +
-              (num.gridScore * CONFIG.energyWeights.gridPosition)
-    }));
+    const energyData = calculateEnergy(allNumbers, CONFIG.energyWeights);
 
     switch (state.currentMethod) {
       case 'energy':
         return { 
-          numbers: energyData.sort((a, b) => b.energy - a.energy).slice(0, 10).map(n => n.number), 
+          numbers: energyData.sort((a, b) => b.energy - a.energy).slice(0, 10).map(n => n.number),
           confidence: 0.7, 
           model: 'energy' 
         };
       case 'frequency':
-        return getFrequencyFallback(draws);
+        return getFrequencyFallback(draws, decayRate);
       case 'ml':
-        return await getMLPrediction(draws);
+        return await getMLPrediction(draws, decayRate);
       case 'combined':
       default:
-        const mlResult = await getMLPrediction(draws);
+        const mlResult = await getMLPrediction(draws, decayRate);
         return {
           numbers: [...new Set([...mlResult.numbers, ...energyData.sort((a, b) => b.energy - a.energy).slice(0, 5).map(n => n.number)])].slice(0, 10),
           confidence: (mlResult.confidence + 0.7) / 2,
@@ -455,7 +459,7 @@
   }
 
   // ==================== ML & PREDICTION FUNCTIONS ==================== //
-  async function getMLPrediction(draws = state.draws) {
+  async function getMLPrediction(draws = state.draws, decayRate = state.decayRate) {
     try {
       if (!window.lotteryML) {
         throw new Error('Machine Learning module not available');
@@ -466,22 +470,19 @@
         await window.lotteryML.trainLSTM(draws);
       }
       
-      const prediction = await window.lotteryML.predictNextNumbers(draws);
+      const prediction = await window.lotteryML.predictNextNumbers(draws, decayRate);
       return prediction;
       
     } catch (error) {
       console.warn('ML prediction failed, using fallback:', error);
-      return getFrequencyFallback(draws);
+      return getFrequencyFallback(draws, decayRate);
     }
   }
 
-  function getFrequencyFallback(draws = state.draws) {
-    const frequencyMap = new Array(70).fill(0);
-    draws.forEach(draw => {
-      draw.numbers.forEach(num => {
-        if (num >= 1 && num <= 69) frequencyMap[num]++;
-      });
-    });
+  function getFrequencyFallback(draws = state.draws, decayRate = state.decayRate) {
+    // Use the new temporal functions for a better fallback
+    const weightedDraws = applyTemporalWeighting(draws, decayRate);
+    const frequencyMap = calculateTemporalFrequency(weightedDraws);
     
     const predictedNumbers = frequencyMap
       .map((count, number) => ({ number, count }))
@@ -489,12 +490,12 @@
       .sort((a, b) => b.count - a.count)
       .slice(0, 10)
       .map(item => item.number);
-    
+
     return {
       numbers: predictedNumbers,
       confidence: 0.65,
-      model: 'fallback_frequency',
-      warning: 'Using frequency-based fallback'
+      model: 'fallback_temporal_frequency',
+      warning: 'Using temporal frequency-based fallback'
     };
   }
 
