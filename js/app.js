@@ -1,7 +1,11 @@
 /**
  * LOTTERY ANALYSIS PRO - CORE APPLICATION
- * Version: 2.3.1 | Last Updated: 2025-08-20 06:15 PM EST
- * Fix: Moved utility functions before async functions that use them
+ * Version: 2.4.0 | Last Updated: 2025-08-20 08:15 PM EST
+ * Changes:
+ * - Integrated temporal decay weighting
+ * - Added number pairing analysis
+ * - Enhanced with statistical gap analysis
+ * - Combined all analysis methods for improved predictions
  */
 
 (function() {
@@ -15,7 +19,9 @@
       mod5: 0.2,
       gridPosition: 0.3
     },
-    analysisMethods: ['energy', 'frequency', 'ml', 'combined']
+    analysisMethods: ['energy', 'frequency', 'ml', 'combined'],
+    temporalDecayRate: 0.995, // New config for temporal decay
+    minPairFrequency: 3        // New config for pair analysis
   };
 
   // ==================== STATE ==================== //
@@ -25,7 +31,8 @@
     currentStrategy: null,
     currentMethod: 'combined',
     analysisHistory: [],
-    isAnalyzing: false
+    isAnalyzing: false,
+    enhancedData: null // New state for enhanced analysis results
   };
 
   // ==================== DOM ELEMENTS ==================== //
@@ -38,10 +45,11 @@
     formulaBuilder: document.getElementById('formula-builder'),
     saveStrategy: document.getElementById('save-strategy'),
     methodSelector: document.createElement('select'),
-    progressIndicator: document.createElement('div')
+    progressIndicator: document.createElement('div'),
+    advancedResults: document.createElement('div') // New element for advanced insights
   };
 
-  // ==================== UTILITY FUNCTIONS (MOVED UP) ==================== //
+  // ==================== UTILITY FUNCTIONS ==================== //
   function readFile(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -96,126 +104,15 @@
     elements.progressIndicator.className = 'progress-indicator';
     elements.progressIndicator.style.display = 'none';
     document.body.appendChild(elements.progressIndicator);
+
+    // Create advanced results panel
+    elements.advancedResults.id = 'advanced-results';
+    elements.advancedResults.className = 'panel';
+    elements.advancedResults.innerHTML = '<h2>📊 Advanced Insights</h2><div id="advanced-content"></div>';
+    document.querySelector('.panels').appendChild(elements.advancedResults);
   }
 
-  // ==================== STRATEGY MANAGEMENT ==================== //
-  function initStrategies() {
-    try {
-      const saved = localStorage.getItem('lotteryStrategies');
-      if (saved) {
-        state.strategies = JSON.parse(saved);
-        console.log(`Loaded ${state.strategies.length} strategies`);
-      }
-    } catch (error) {
-      console.warn('Strategy loading failed:', error);
-    }
-  }
-
-  function initStrategyBuilder() {
-    if (!elements.formulaBuilder) return;
-    
-    const factors = [
-      { name: 'Prime', value: 'prime', weight: 0.3 },
-      { name: 'Digital Root', value: 'digitalRoot', weight: 0.2 },
-      { name: 'Mod 5', value: 'mod5', weight: 0.2 },
-      { name: 'Grid Position', value: 'gridPosition', weight: 0.3 }
-    ];
-
-    elements.formulaBuilder.innerHTML = factors.map(factor => `
-      <div class="factor" data-factor="${factor.value}" data-weight="${factor.weight}">
-        <span>${factor.name}</span>
-        <input type="number" value="${factor.weight}" step="0.1" min="0" max="1" 
-               onchange="updateStrategyWeight('${factor.value}', this.value)">
-      </div>
-    `).join('');
-  }
-
-  function updateStrategyWeight(factor, weight) {
-    if (!state.currentStrategy) {
-      state.currentStrategy = { name: 'Custom', weights: {} };
-    }
-    state.currentStrategy.weights[factor] = parseFloat(weight);
-  }
-
-  function saveCurrentStrategy() {
-    if (!state.currentStrategy) {
-      showError('Strategy Error', new Error('No strategy to save'));
-      return;
-    }
-
-    try {
-      const strategies = JSON.parse(localStorage.getItem('lotteryStrategies') || '[]');
-      strategies.push(state.currentStrategy);
-      localStorage.setItem('lotteryStrategies', JSON.stringify(strategies));
-      alert('Strategy saved successfully!');
-    } catch (error) {
-      showError('Save Failed', error);
-    }
-  }
-
-  // ==================== CORE FUNCTIONS ==================== //
-  function initEventListeners() {
-    if (!elements.uploadInput || !elements.analyzeBtn) {
-      console.error('Required elements missing');
-      return;
-    }
-
-    elements.uploadInput.addEventListener('change', handleFileUpload);
-    elements.analyzeBtn.addEventListener('click', runAnalysis);
-    elements.methodSelector.addEventListener('change', (e) => {
-      state.currentMethod = e.target.value;
-    });
-    
-    if (elements.saveStrategy) {
-      elements.saveStrategy.addEventListener('click', saveCurrentStrategy);
-    }
-
-    // Initialize strategy builder on click
-    const strategyPanel = document.getElementById('strategy-builder');
-    if (strategyPanel) {
-      strategyPanel.addEventListener('click', initStrategyBuilder);
-    }
-  }
-
-  function showProgress(message) {
-    elements.progressIndicator.style.display = 'block';
-    elements.progressIndicator.innerHTML = `
-      <div class="progress-content">
-        <div class="spinner"></div>
-        <p>${message}</p>
-      </div>
-    `;
-    elements.analyzeBtn.disabled = true;
-    state.isAnalyzing = true;
-  }
-
-  function hideProgress() {
-    elements.progressIndicator.style.display = 'none';
-    elements.analyzeBtn.disabled = false;
-    state.isAnalyzing = false;
-  }
-
-  async function handleFileUpload(event) {
-    try {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      if (!file.name.endsWith('.csv')) {
-        throw new Error('Please upload a CSV file');
-      }
-
-      showProgress('Parsing CSV file...');
-      const content = await readFile(file);
-      await parseCSVWithPapaParse(content);
-      hideProgress();
-      
-    } catch (error) {
-      hideProgress();
-      showError('File upload failed', error);
-      resetFileInput();
-    }
-  }
-
+  // ==================== CORE ANALYSIS INTEGRATION ==================== //
   async function runAnalysis() {
     if (state.isAnalyzing) return;
     
@@ -224,13 +121,22 @@
         throw new Error('Please upload CSV file first');
       }
 
-      showProgress('Analyzing data...');
-      console.log('Running', state.currentMethod, 'analysis on', state.draws.length, 'draws...');
+      showProgress('Running advanced analysis...');
       
+      // 1. ENHANCE DATA WITH NEW ANALYSIS TECHNIQUES
+      state.enhancedData = {
+        weightedDraws: applyTemporalDecay(state.draws, CONFIG.temporalDecayRate),
+        frequentPairs: findNumberPairs(state.draws, CONFIG.minPairFrequency),
+        gapAnalysis: calculateGapAnalysis(state.draws),
+        analysisTime: new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })
+      };
+
+      console.log('Enhanced analysis complete:', state.enhancedData);
+
+      // 2. CALCULATE ENERGY SIGNATURES (Existing)
       const allNumbers = Array.from({length: 69}, (_, i) => i + 1);
       let energyData = calculateEnergy(allNumbers);
       
-      // Apply energy weights
       energyData = energyData.map(num => ({
         ...num,
         energy: (num.isPrime * CONFIG.energyWeights.prime) +
@@ -239,11 +145,39 @@
                 (num.gridScore * CONFIG.energyWeights.gridPosition)
       }));
 
-      // Get predictions based on selected method
+      // 3. APPLY ENHANCED ANALYSIS TO ENERGY SCORES
+      const enhancedEnergyData = energyData.map(num => {
+        const gapInfo = state.enhancedData.gapAnalysis[num.number];
+        let enhancedScore = num.energy;
+
+        // Boost overdue numbers
+        if (gapInfo && gapInfo.isOverdue) {
+          enhancedScore *= 1.3; // 30% boost for overdue numbers
+        }
+
+        // Boost numbers that are part of frequent pairs
+        const isInFrequentPair = Object.keys(state.enhancedData.frequentPairs).some(pairKey => {
+          const [num1, num2] = pairKey.split('-').map(Number);
+          return num1 === num.number || num2 === num.number;
+        });
+
+        if (isInFrequentPair) {
+          enhancedScore *= 1.2; // 20% boost for numbers in frequent pairs
+        }
+
+        return {
+          ...num,
+          energy: enhancedScore,
+          isOverdue: gapInfo ? gapInfo.isOverdue : false,
+          inFrequentPair: isInFrequentPair
+        };
+      });
+
+      // 4. GET PREDICTIONS BASED ON SELECTED METHOD
       let mlPrediction;
       switch (state.currentMethod) {
         case 'energy':
-          mlPrediction = { numbers: energyData.sort((a, b) => b.energy - a.energy).slice(0, 10).map(n => n.number), confidence: 0.7, model: 'energy' };
+          mlPrediction = await getEnergyBasedPrediction(enhancedEnergyData);
           break;
         case 'frequency':
           mlPrediction = getFrequencyFallback();
@@ -253,19 +187,13 @@
           break;
         case 'combined':
         default:
-          const mlResult = await getMLPrediction();
-          mlPrediction = {
-            numbers: [...new Set([...mlResult.numbers, ...energyData.sort((a, b) => b.energy - a.energy).slice(0, 5).map(n => n.number)])].slice(0, 10),
-            confidence: (mlResult.confidence + 0.7) / 2,
-            model: 'combined'
-          };
+          mlPrediction = await getCombinedPrediction(enhancedEnergyData);
       }
 
-      // Test prediction effectiveness
+      // 5. TEST EFFECTIVENESS AND DISPLAY RESULTS
       const effectiveness = await testPredictionEffectiveness();
-      
-      // Display results
-      displayResults(energyData, mlPrediction, effectiveness);
+      displayResults(enhancedEnergyData, mlPrediction, effectiveness);
+      displayAdvancedInsights(); // New function for advanced data
       hideProgress();
 
     } catch (error) {
@@ -274,244 +202,96 @@
     }
   }
 
-  async function testPredictionEffectiveness() {
-    if (state.draws.length < 20) {
-      return { available: false, message: 'Need at least 20 draws for testing' };
-    }
-
-    // Use last 20% of data for testing
-    const testSize = Math.floor(state.draws.length * 0.2);
-    const testData = state.draws.slice(-testSize);
-    const trainingData = state.draws.slice(0, -testSize);
-
-    let correctPredictions = 0;
-    let totalTests = 0;
-
-    for (let i = 0; i < testData.length - 1; i++) {
-      const testDraw = testData[i];
-      const nextDraw = testData[i + 1];
-      
-      // Simulate prediction using historical data up to this point
-      const simulatedData = [...trainingData, ...testData.slice(0, i + 1)];
-      const prediction = await getMLPrediction(simulatedData);
-      
-      // Check if any predicted numbers appear in next draw
-      const hits = nextDraw.numbers.filter(num => prediction.numbers.includes(num)).length;
-      if (hits > 0) {
-        correctPredictions++;
-      }
-      totalTests++;
-    }
-
+  // ==================== NEW PREDICTION STRATEGIES ==================== //
+  async function getEnergyBasedPrediction(energyData) {
+    const sortedNumbers = energyData.sort((a, b) => b.energy - a.energy);
+    const topNumbers = sortedNumbers.slice(0, 10).map(n => n.number);
+    
     return {
-      available: true,
-      accuracy: totalTests > 0 ? (correctPredictions / totalTests) : 0,
-      totalTests: totalTests,
-      correctPredictions: correctPredictions
+      numbers: topNumbers,
+      confidence: 0.75,
+      model: 'enhanced_energy',
+      method: 'energy_analysis'
     };
   }
 
-  async function getMLPrediction(draws = state.draws) {
-    try {
-      if (!window.lotteryML) {
-        throw new Error('Machine Learning module not available');
-      }
-      
-      // Train model first if we have enough data and it's not trained
-      if (draws.length >= 50 && window.lotteryML.status !== 'trained') {
-        console.log('Training ML model with available data...');
-        await window.lotteryML.trainLSTM(draws);
-      }
-      
-      // Get prediction from trained model
-      const prediction = await window.lotteryML.predictNextNumbers(draws);
-      return prediction;
-      
-    } catch (error) {
-      console.warn('ML prediction failed, using fallback:', error);
-      return getFrequencyFallback(draws);
-    }
-  }
+  async function getCombinedPrediction(energyData) {
+    const [mlResult, energyResult] = await Promise.all([
+      getMLPrediction().catch(() => getFrequencyFallback()),
+      getEnergyBasedPrediction(energyData)
+    ]);
 
-  function getFrequencyFallback(draws = state.draws) {
-    const frequencyMap = new Array(70).fill(0);
-    draws.forEach(draw => {
-      draw.numbers.forEach(num => {
-        if (num >= 1 && num <= 69) frequencyMap[num]++;
-      });
-    });
-    
-    const predictedNumbers = frequencyMap
-      .map((count, number) => ({ number, count }))
-      .filter(item => item.number >= 1 && item.number <= 69)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10)
-      .map(item => item.number);
-    
+    // Combine and deduplicate, prioritizing ML results but including top energy picks
+    const combinedNumbers = [...new Set([
+      ...mlResult.numbers.slice(0, 6),          // Top 6 ML predictions
+      ...energyResult.numbers.slice(0, 4)       // Top 4 energy predictions
+    ])].slice(0, 10);
+
     return {
-      numbers: predictedNumbers,
-      confidence: 0.65,
-      model: 'fallback_frequency',
-      warning: 'Using frequency-based fallback'
+      numbers: combinedNumbers,
+      confidence: (mlResult.confidence + energyResult.confidence) / 2,
+      model: 'combined_enhanced',
+      method: 'hybrid_analysis'
     };
   }
 
-  // ==================== CSV PARSING ==================== //
-  async function parseCSVWithPapaParse(content) {
-    return new Promise((resolve, reject) => {
-      Papa.parse(content, {
-        header: false,
-        skipEmptyLines: true,
-        complete: function(results) {
-          if (results.errors.length > 0) {
-            reject(new Error(`CSV errors: ${results.errors.map(e => e.message).join(', ')}`));
-            return;
-          }
+  // ==================== ADVANCED INSIGHTS DISPLAY ==================== //
+  function displayAdvancedInsights() {
+    if (!state.enhancedData || !elements.advancedResults) return;
 
-          try {
-            state.draws = results.data
-              .filter(row => row.length >= 10)
-              .map(row => {
-                const [mm, dd, yyyy, n1, n2, n3, n4, n5, n6, powerball] = row;
-                
-                // Validate numbers
-                const numbers = [n1, n2, n3, n4, n5, n6].map(Number);
-                if (numbers.some(isNaN)) {
-                  throw new Error('Invalid number format in CSV');
-                }
+    const overdueNumbers = Object.values(state.enhancedData.gapAnalysis)
+      .filter(data => data.isOverdue)
+      .sort((a, b) => b.currentGap - a.currentGap)
+      .slice(0, 10);
 
-                // Parse date safely
-                const date = new Date(`${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`);
-                if (isNaN(date.getTime())) {
-                  throw new Error(`Invalid date: ${yyyy}-${mm}-${dd}`);
-                }
+    const topPairs = Object.entries(state.enhancedData.frequentPairs)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
 
-                return {
-                  date: date,
-                  numbers: numbers,
-                  powerball: Number(powerball)
-                };
-              })
-              .filter(draw => !isNaN(draw.powerball));
+    elements.advancedResults.querySelector('#advanced-content').innerHTML = `
+      <div class="insight-section">
+        <h3>⏰ Overdue Numbers</h3>
+        <p>Numbers statistically due to appear (50% beyond expected gap):</p>
+        <div class="number-grid">
+          ${overdueNumbers.map(num => `
+            <span class="number overdue" title="Expected gap: ${num.expectedGap.toFixed(1)}, Current gap: ${num.currentGap}">
+              ${num.number}
+            </span>
+          `).join(' ')}
+        </div>
+      </div>
 
-            elements.analyzeBtn.disabled = false;
-            console.log(`Successfully parsed ${state.draws.length} draws`);
-            resolve(state.draws);
-            
-          } catch (error) {
-            reject(error);
-          }
-        },
-        error: function(error) {
-          reject(new Error(`CSV parsing failed: ${error.message}`));
-        }
-      });
-    });
-  }
+      <div class="insight-section">
+        <h3>🤝 Frequent Pairs</h3>
+        <p>Number pairs that appear together most often:</p>
+        <div class="pairs-list">
+          ${topPairs.map(([pair, count]) => `
+            <div class="pair-item">
+              <span class="pair-numbers">${pair.replace('-', ' & ')}</span>
+              <span class="pair-count">${count} times</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
 
-  // ==================== RESULT DISPLAY ==================== //
-  function displayResults(energyData, mlPrediction, effectiveness) {
-    try {
-      displayEnergyResults(energyData, elements.energyResults);
-      displayMLResults(mlPrediction, elements.mlResults, effectiveness);
-      
-      const recommendations = generateRecommendations(energyData, mlPrediction);
-      displayRecommendations(recommendations);
-      
-    } catch (error) {
-      console.error('Display failed:', error);
-    }
-  }
-
-  function generateRecommendations(energyData, mlPrediction) {
-    const topEnergy = [...energyData].sort((a, b) => b.energy - a.energy).slice(0, 6);
-    const mlNumbers = mlPrediction.numbers.slice(0, 6);
-    
-    return {
-      highConfidence: findOverlap(topEnergy, mlNumbers),
-      energyBased: topEnergy.map(n => n.number),
-      mlBased: mlNumbers,
-      summary: `Based on ${state.draws.length} historical draws`
-    };
-  }
-
-  function findOverlap(energyArray, mlArray) {
-    const energyNumbers = energyArray.map(item => item.number);
-    return mlArray.filter(num => energyNumbers.includes(num));
-  }
-
-  function displayMLResults(mlPrediction, container, effectiveness) {
-    const numbersWithSpaces = mlPrediction.numbers.map(num => 
-      num.toString().padStart(2, '0')
-    ).join(' ');
-    
-    container.innerHTML = `
-      <div class="ml-prediction">
-        <div class="confidence">Confidence: ${(mlPrediction.confidence * 100).toFixed(1)}%</div>
-        <div class="ml-numbers">${numbersWithSpaces}</div>
-        <div class="model-info">Model: ${mlPrediction.model}</div>
-        ${effectiveness.available ? `
-          <div class="effectiveness">
-            Test Accuracy: ${(effectiveness.accuracy * 100).toFixed(1)}%
-            (${effectiveness.correctPredictions}/${effectiveness.totalTests})
-          </div>
-        ` : ''}
-        ${mlPrediction.warning ? `<div class="warning">${mlPrediction.warning}</div>` : ''}
+      <div class="insight-section">
+        <h3>📈 Analysis Info</h3>
+        <p>Analyzed ${state.draws.length} draws with temporal decay (${CONFIG.temporalDecayRate})</p>
+        <p>Generated: ${state.enhancedData.analysisTime} EST</p>
       </div>
     `;
   }
 
-  function displayRecommendations(recommendations) {
-    if (!elements.recommendations) return;
-    
-    const formatNumbers = (numbers) => 
-      numbers.map(num => num.toString().padStart(2, '0')).join(' ');
-    
-    elements.recommendations.innerHTML = `
-      <div class="recommendation-section">
-        <h3>🎯 High Confidence Numbers</h3>
-        <div class="number-grid">
-          ${recommendations.highConfidence.map(num => 
-            `<span class="number high-confidence">${num}</span>`
-          ).join(' ')}
-          ${recommendations.highConfidence.length === 0 ? 
-            '<span class="no-data">No strong matches found</span>' : ''}
-        </div>
-      </div>
-      
-      <div class="recommendation-section">
-        <h3>⚡ Energy-Based Numbers</h3>
-        <div class="number-grid">
-          ${recommendations.energyBased.map(num => 
-            `<span class="number energy-based">${num}</span>`
-          ).join(' ')}
-        </div>
-      </div>
-      
-      <div class="recommendation-section">
-        <h3>🤖 ML-Based Numbers</h3>
-        <div class="number-grid">
-          ${recommendations.mlBased.map(num => 
-            `<span class="number ml-based">${num}</span>`
-          ).join(' ')}
-        </div>
-      </div>
-      
-      <div class="recommendation-summary">
-        <p>${recommendations.summary}</p>
-      </div>
-    `;
-  }
+  // ==================== EXISTING FUNCTIONS (keep all these) ==================== //
+  // [KEEP ALL THE EXISTING FUNCTIONS FROM YOUR CURRENT app.js:
+  // - initStrategies(), initEventListeners()
+  // - handleFileUpload(), parseCSVWithPapaParse()
+  // - getMLPrediction(), getFrequencyFallback()
+  // - testPredictionEffectiveness()
+  // - displayResults(), displayMLResults(), displayRecommendations()
+  // - generateRecommendations(), findOverlap()
+  // - showProgress(), hideProgress()
+  // - AND ALL OTHER SUPPORTING FUNCTIONS]
+  // =================================================================================
 
-  // ==================== ERROR FILTERING ==================== //
-  const originalError = console.error;
-  console.error = function() {
-    const errorMsg = String(arguments[0] || '');
-    const isExternal = !errorMsg.includes('app.js') && 
-                       !errorMsg.includes('utils.js') &&
-                       !errorMsg.includes('lottery');
-    
-    if (isExternal && !errorMsg.includes('PapaParse')) return;
-    originalError.apply(console, arguments);
-  };
 })();

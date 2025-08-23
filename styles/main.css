@@ -293,3 +293,48 @@ h1 {
     font-size: 2rem;
   }
 }
+
+/* Advanced Insights Styling */
+#advanced-results {
+  margin-top: 20px;
+}
+
+.insight-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.insight-section h3 {
+  margin-top: 0;
+  color: var(--primary-light);
+}
+
+.number.overdue {
+  background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+  animation: pulse 2s infinite;
+}
+
+.pairs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pair-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem;
+  background: rgba(110, 72, 255, 0.1);
+  border-radius: 4px;
+}
+
+.pair-numbers {
+  font-weight: bold;
+}
+
+.pair-count {
+  color: var(--text-muted);
+  font-size: 0.9em;
+}

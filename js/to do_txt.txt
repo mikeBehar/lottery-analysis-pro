@@ -1,4 +1,54 @@
+ 
+Advanced Analysis RoadmapYE
+1. Advanced Analysis Engine
 
+1a. Temporal Weighting: Implement time-decay to weight recent draws more heavily than older ones.
+
+1b. Number Pairing/Grouping Analysis: Identify numbers that frequently appear together.
+
+1c. Enhanced Gap Analysis: Calculate the statistically "expected" gap for each number to find truly "overdue" numbers, not just infrequent ones.
+
+2. Validation & Analytics Suite
+
+2a. Rolling Window Analysis (5 Groups): Visually show how predictions change over different eras of data (not just a table).
+
+2b. Comprehensive Backtesting: Implement walk-forward testing to generate key performance metrics: Hit Rate ("X numbers right Y% of the time"), Precision, Recall, and simulated ROI.
+
+3. UI & Control Panel
+
+3a. Fine-Tuning Dashboard: Expose key parameters (Energy Weights, Time-Decay rate, ML confidence thresholds) in the UI for users to tweak and experiment with.
+
+3b. Tiered Recommendations: Formalize the output into three confidence-based tiers: High-Confidence Core, Medium-Confidence Pool, and Long-Shot Wildcards.
+
+4. Visualization
+
+4a. Prediction Evolution Chart: A line or bar chart showing how the top predicted numbers changed across the 5 time windows.
+
+4b. Performance Metrics Dashboard: A clear display of backtesting results (accuracy, hit rate, etc.).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
++++++++++++++++++++++++++++++
 Temporal Weighting
 
 Number Pairing/Grouping Analysis -- This could be a separate model whose output gets incorporated into the final recommendation.
