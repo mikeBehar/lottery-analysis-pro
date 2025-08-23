@@ -1,10 +1,11 @@
 {
   "name": "lottery-analysis-pro",
   "version": "1.0.0",
-  "description": "/lottery-analysis-pro/\r ├── index.html                 # Main HTML entry point\r ├── styles/\r │   └── main.css               # All CSS styles\r ├── js/\r │   ├── app.js                 # Core application logic (v1.0.1)\r │   ├── ml.js                  # Machine learning functions (v1.0.0)\r │   ├── strategy.js            # Strategy builder (v1.0.2)\r │   └── utils.js               # Analytical utilities (v1.0.2)\r ├── data/                      # CSV storage directory\r │   └── uploaded/              # Processed CSV files\r └── README.md",
+  "description": "A tool for advanced lottery number analysis and prediction.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint js/*.js"
   },
   "repository": {
     "type": "git",
