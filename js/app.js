@@ -15,6 +15,14 @@
       mod5: 0.2,
       gridPosition: 0.3
     },
+    temporalDecayRates: {
+      none: 0.0,
+      low: 0.05,
+      medium: 0.1,
+      high: 0.2,
+      very_high: 0.3
+     }
+    },
     analysisMethods: ['energy', 'frequency', 'ml', 'combined'],
     backtestSettings: {
       initialTrainingSize: 100,
@@ -32,6 +40,8 @@
     currentMethod: 'combined',
     analysisHistory: [],
     isAnalyzing: false,
+    temporalDecay: 'medium',
+    decayRate: CONFIG.temporalDecayRates.medium,
     backtestResults: null
   };
 
@@ -45,6 +55,7 @@
     formulaBuilder: document.getElementById('formula-builder'),
     saveStrategy: document.getElementById('save-strategy'),
     methodSelector: document.createElement('select'),
+    temporalDecaySelector: document.createElement('select'),
     progressIndicator: document.createElement('div'),
     backtestResults: document.createElement('div')
   };
@@ -142,6 +153,28 @@
       energyPanel.insertBefore(elements.methodSelector, energyPanel.firstChild);
     }
 
+    // Create and add temporal decay selector to control panel
+    elements.temporalDecaySelector.id = 'temporal-decay';
+    elements.temporalDecaySelector.className = 'temporal-selector';
+    
+    Object.entries(CONFIG.temporalDecayRates).forEach(([key, value]) => {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ');
+      if (key === 'medium') option.selected = true;
+      elements.temporalDecaySelector.appendChild(option);
+    });
+    
+    const temporalLabel = document.createElement('label');
+    temporalLabel.htmlFor = 'temporal-decay';
+    temporalLabel.textContent = 'Time Weighting: ';
+    temporalLabel.className = 'temporal-label';
+    
+    // Add to control panel
+    const controlPanel = document.querySelector('.control-panel');
+    controlPanel.appendChild(temporalLabel);
+    controlPanel.appendChild(elements.temporalDecaySelector);
+
     elements.progressIndicator.className = 'progress-indicator';
     elements.progressIndicator.style.display = 'none';
     document.body.appendChild(elements.progressIndicator);
@@ -171,6 +204,18 @@
 
     elements.uploadInput.addEventListener('change', handleFileUpload);
     elements.analyzeBtn.addEventListener('click', runAnalysis);
+    
+    elements.temporalDecaySelector.addEventListener('change', (e) => {
+      if (!CONFIG.temporalDecayRates[e.target.value]) {
+        console.warn('Invalid temporal decay value:', e.target.value);
+        e.target.value = 'medium';
+        return;
+      }
+      
+      state.temporalDecay = e.target.value;
+      state.decayRate = CONFIG.temporalDecayRates[e.target.value];
+      console.log(`Temporal decay set to: ${state.temporalDecay} (rate: ${state.decayRate})`);
+    });
     elements.methodSelector.addEventListener('change', (e) => {
       state.currentMethod = e.target.value;
     });

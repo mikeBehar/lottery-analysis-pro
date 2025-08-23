@@ -1,4 +1,10 @@
  
+ 
+ dont forget:
+ FOLLOW-ON TASK: Design and build the Hybrid API for parameter optimization, leveraging the backtesting logic from step 1.
+ ----
+ 
+ 
 Advanced Analysis RoadmapYE
 1. Advanced Analysis Engine
 

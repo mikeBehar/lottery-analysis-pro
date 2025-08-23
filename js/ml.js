@@ -154,8 +154,8 @@ class LotteryML {
   async predictNextNumbers(draws) {
     try {
       if (this.model && this.status === "trained") {
-        return await this.predictWithLSTM(draws);
-      } else {
+        return await this.predictWithLSTM(applyTemporalWeighting(draws, 0.1));
+       } else {
         return await this.predictWithFrequency(draws);
       }
     } catch (error) {
@@ -223,8 +223,32 @@ class LotteryML {
   }
 
   /**
-   * Get prediction based on frequency analysis
-   * @param {Array} frequencyMap - Frequency counts
+   * Enhanced frequency analysis with temporal weighting
+   * @param {Array} draws - Historical draw data
+   * @param {number} decayRate - Temporal decay rate
+   * @returns {Object} Temporal-weighted prediction
+   */
+  async predictWithTemporalFrequency(draws, decayRate = 0.1) {
+    const weightedDraws = applyTemporalWeighting(draws, decayRate);
+    const temporalFrequency = calculateTemporalFrequency(weightedDraws);
+    
+    const predictedNumbers = temporalFrequency
+      .map((weightedCount, number) => ({ number, weightedCount }))
+      .filter(item => item.number >= 1 && item.number <= 69)
+      .sort((a, b) => b.weightedCount - a.weightedCount)
+      .slice(0, 10)
+      .map(item => item.number);
+    
+    return {
+      numbers: predictedNumbers,
+      confidence: Math.min(0.82, 0.65 + (weightedDraws.length > 100 ? 0.17 : 0)),
+      model: 'temporal_frequency'
+    };
+  }
+
+   /**
+    * Get prediction based on frequency analysis
+    * @param {Array} frequencyMap - Frequency counts
    * @returns {Array} Predicted numbers
    */
   getFrequencyBasedPrediction(frequencyMap) {

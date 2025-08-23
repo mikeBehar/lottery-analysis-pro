@@ -338,3 +338,26 @@ h1 {
   color: var(--text-muted);
   font-size: 0.9em;
 }
+
+/* Temporal Controls */
+.temporal-label {
+  margin: 0 0.5rem 0 1rem;
+  font-weight: bold;
+  color: var(--text-light);
+}
+
+.temporal-selector {
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--primary);
+  background: var(--darker-bg);
+  color: var(--text-light);
+  font-size: 0.9rem;
+  margin-right: 1rem;
+}
+
+.temporal-selector:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255, 77, 141, 0.2);
+}
