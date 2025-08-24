@@ -40,7 +40,9 @@
     isAnalyzing: false,
     temporalDecay: 'medium',
     decayRate: CONFIG.temporalDecayRates.medium,
-    backtestResults: null
+    backtestResults: null,
+    isCancelled: false,
+    activeWorkers: null
   };
 
   // ==================== DOM ELEMENTS ==================== //
@@ -179,7 +181,20 @@
     // Add to control panel
     const controlPanel = document.querySelector('.control-panel');
     controlPanel.appendChild(temporalLabel);
-    controlPanel.appendChild(elements.temporalDecaySelector);
+    
+    // Create cancel button
+    elements.cancelBtn = document.createElement('button');
+    elements.cancelBtn.id = 'cancel-analysis';
+    elements.cancelBtn.textContent = 'Cancel Analysis';
+    elements.cancelBtn.className = 'cancel-btn';
+    elements.cancelBtn.style.display = 'none';
+    controlPanel.appendChild(elements.cancelBtn);
+    
+    // Create progress text element
+    elements.progressText = document.createElement('div');
+    elements.progressText.id = 'progress-text';
+    elements.progressText.className = 'progress-text';
+    document.querySelector('header').appendChild(elements.progressText);
 
     elements.progressIndicator.className = 'progress-indicator';
     elements.progressIndicator.style.display = 'none';
@@ -225,6 +240,7 @@
     elements.methodSelector.addEventListener('change', (e) => {
       state.currentMethod = e.target.value;
     });
+    elements.cancelBtn.addEventListener('click', cancelAnalysis);
   }
 
   // ==================== EVENT LISTENERS ==================== //
@@ -250,8 +266,11 @@
 
   function hideProgress() {
     elements.progressIndicator.style.display = 'none';
+    elements.cancelBtn.style.display = 'none';
+    elements.progressText.textContent = '';
     elements.analyzeBtn.disabled = false;
     state.isAnalyzing = false;
+    cancelAllWorkers();
   }
 
   async function handleFileUpload(event) {
@@ -333,58 +352,40 @@
   // ==================== COMPREHENSIVE BACKTESTING ==================== //
   async function runComprehensiveBacktesting(decayRate) {
     if (state.draws.length < CONFIG.backtestSettings.initialTrainingSize + CONFIG.backtestSettings.testWindowSize) {
-      return {
-        available: false,
-        message: `Need at least ${CONFIG.backtestSettings.initialTrainingSize + CONFIG.backtestSettings.testWindowSize} draws for backtesting`
-      };
+      return createInsufficientDataResponse();
     }
-
-    showProgress('Running comprehensive backtesting...');
-
-    const results = {
-      available: true,
-      method: state.currentMethod,
-      totalTests: 0,
-      totalDrawsTested: 0,
-      hits: { 3: 0, 4: 0, 5: 0, 6: 0 },
-      simulations: [],
-      performanceMetrics: {}
-    };
-
-    for (let i = CONFIG.backtestSettings.initialTrainingSize; i < state.draws.length - CONFIG.backtestSettings.testWindowSize; i += CONFIG.backtestSettings.stepSize) {
-      const trainingData = state.draws.slice(0, i);
-      const testData = state.draws.slice(i, i + CONFIG.backtestSettings.testWindowSize);
-
-      for (let j = 0; j < testData.length - 1; j++) {
-        const currentTestDraw = testData[j];
-        const nextDraw = testData[j + 1];
-        
-        const historicalData = [...trainingData, ...testData.slice(0, j + 1)];
-        const prediction = await getPredictionForBacktest(historicalData, decayRate);
-        
-        const matchedNumbers = nextDraw.numbers.filter(num => prediction.numbers.includes(num));
-        const hitCount = matchedNumbers.length;
-        
-        if (hitCount >= 3) {
-          results.hits[hitCount]++;
+    updateProgress('Initializing backtesting worker...');
+    return new Promise((resolve, reject) => {
+      const backtestWorker = new Worker('js/workers/backtest-worker.js');
+      state.activeWorkers = state.activeWorkers || new Map();
+      state.activeWorkers.set('backtest', backtestWorker);
+      backtestWorker.onmessage = function(e) {
+        const { type, data } = e.data;
+        switch (type) {
+          case 'progress':
+            updateProgress(data.message, data.percentage);
+            break;
+          case 'result':
+            state.activeWorkers.delete('backtest');
+            resolve(data.results);
+            break;
+          case 'error':
+            state.activeWorkers.delete('backtest');
+            reject(new Error(data.message));
+            break;
         }
-        
-        results.simulations.push({
-          drawDate: nextDraw.date,
-          predicted: prediction.numbers,
-          actual: nextDraw.numbers,
-          matched: matchedNumbers,
-          hitCount: hitCount,
-          confidence: prediction.confidence
-        });
-        
-        results.totalTests++;
-        results.totalDrawsTested++;
-      }
-    }
-
-    results.performanceMetrics = calculatePerformanceMetrics(results);
-    return results;
+      };
+      backtestWorker.onerror = function(error) {
+        state.activeWorkers.delete('backtest');
+        reject(error);
+      };
+      backtestWorker.postMessage({
+        draws: state.draws,
+        decayRate: decayRate,
+        method: state.currentMethod,
+        config: CONFIG.backtestSettings
+      });
+    });
   }
 
   async function getPredictionForBacktest(draws, decayRate) {
@@ -460,23 +461,39 @@
 
   // ==================== ML & PREDICTION FUNCTIONS ==================== //
   async function getMLPrediction(draws = state.draws, decayRate = state.decayRate) {
-    try {
-      if (!window.lotteryML) {
-        throw new Error('Machine Learning module not available');
-      }
-      
-      if (draws.length >= 50 && window.lotteryML.status !== 'trained') {
-        console.log('Training ML model with available data...');
-        await window.lotteryML.trainLSTM(draws);
-      }
-      
-      const prediction = await window.lotteryML.predictNextNumbers(draws, decayRate);
-      return prediction;
-      
-    } catch (error) {
-      console.warn('ML prediction failed, using fallback:', error);
+    if (draws.length < 50) {
       return getFrequencyFallback(draws, decayRate);
     }
+    updateProgress('Running ML prediction...');
+    return new Promise((resolve, reject) => {
+      const mlWorker = new Worker('js/workers/ml-worker.js');
+      state.activeWorkers = state.activeWorkers || new Map();
+      state.activeWorkers.set('ml', mlWorker);
+      mlWorker.onmessage = function(e) {
+        const { type, data } = e.data;
+        switch (type) {
+          case 'progress':
+            updateProgress(data.message);
+            break;
+          case 'result':
+            state.activeWorkers.delete('ml');
+            resolve(data.prediction);
+            break;
+          case 'error':
+            state.activeWorkers.delete('ml');
+            resolve(getFrequencyFallback(draws, decayRate));
+            break;
+        }
+      };
+      mlWorker.onerror = function(error) {
+        state.activeWorkers.delete('ml');
+        resolve(getFrequencyFallback(draws, decayRate));
+      };
+      mlWorker.postMessage({
+        draws: draws,
+        decayRate: decayRate
+      });
+    });
   }
 
   function getFrequencyFallback(draws = state.draws, decayRate = state.decayRate) {
@@ -650,5 +667,37 @@
     if (isExternal && !errorMsg.includes('PapaParse')) return;
     originalError.apply(console, arguments);
   };
+
+  function cancelAnalysis() {
+    state.isCancelled = true;
+    cancelAllWorkers();
+    hideProgress();
+    updateProgress('Analysis cancelled');
+    setTimeout(() => {
+      elements.progressText.textContent = '';
+    }, 2000);
+  }
+
+  function updateProgress(message, percentage = null) {
+    if (elements.progressText) {
+      elements.progressText.textContent = message;
+      if (percentage !== null) {
+        elements.progressText.textContent += ` (${percentage}%)`;
+      }
+    }
+  }
+
+  function cancelAllWorkers() {
+    if (!state.activeWorkers) return;
+    state.activeWorkers.forEach((worker, key) => {
+      worker.terminate();
+      if (key === 'backtest' || key === 'ml') {
+        // Also send cancel message for graceful shutdown
+        try { worker.postMessage({ type: 'cancel' }); } catch (e) {}
+      }
+      console.log(`Terminated ${key} worker`);
+    });
+    state.activeWorkers.clear();
+  }
 
 })();

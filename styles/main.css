@@ -361,3 +361,33 @@ h1 {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(255, 77, 141, 0.2);
 }
+
+/* Progress and Cancel Controls */
+.progress-text {
+  text-align: center;
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+  color: var(--primary-light);
+  font-weight: 500;
+}
+
+.cancel-btn {
+  background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  margin-left: 1rem;
+  transition: all 0.3s ease;
+}
+
+.cancel-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+}
+
+.progress-message {
+  margin-bottom: 0.5rem;
+}

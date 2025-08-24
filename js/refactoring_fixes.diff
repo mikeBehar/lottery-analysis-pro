@@ -1,0 +1,174 @@
+diff --git a/index.html b/index.html
+index abc123..def456 100644
+--- a/index.html
++++ b/index.html
+@@ -4,7 +4,7 @@
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-  <title>Lottery Analysis Pro v2.1.0</title>
++  <title>Lottery Analysis Pro v2.4.1</title>
+   <link rel="stylesheet" href="styles/main.css">
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+diff --git a/js/app.js b/js/app.js
+index ghi789..jkl012 100644
+--- a/js/app.js
++++ b/js/app.js
+@@ -12,22 +12,22 @@
+       prime: 0.3,
+       digitalRoot: 0.2,
+       mod5: 0.2,
+-      gridPosition: 0.3
+-    },
+-    temporalDecayRates: {
+-      none: 0.0,
+-      low: 0.05,
+-      medium: 0.1,
+-      high: 0.2,
+-      very_high: 0.3
+-     }
+-    },
+-    analysisMethods: ['energy', 'frequency', 'ml', 'combined'],
+-    backtestSettings: {
+-      initialTrainingSize: 100,
+-      testWindowSize: 20,
+-      stepSize: 1,
+-      confidenceLevel: 0.95
++      gridPosition: 0.3
++    },
++    temporalDecayRates: {
++      none: 0.0,
++      low: 0.05,
++      medium: 0.1,
++      high: 0.2,
++      very_high: 0.3
++    },
++    analysisMethods: ['energy', 'frequency', 'ml', 'combined'],
++    backtestSettings: {
++      initialTrainingSize: 100,
++      testWindowSize: 20,
++      stepSize: 1,
++      confidenceLevel: 0.95
+     }
+   };
+ 
+diff --git a/js/ml.js b/js/ml.js
+index def456..ghi789 100644
+--- a/js/ml.js
++++ b/js/ml.js
+@@ -1,7 +1,7 @@
+ /**
+  * MACHINE LEARNING MODULE FOR LOTTERY ANALYSIS
+- * Version: 2.0.0 | Updated: 2025-08-20
+- * 
++ * Version: 2.4.1 | Updated: 2024-08-21 09:30 AM EST
++ *
+  * Provides machine learning capabilities for lottery number prediction
+  * Includes both placeholder implementations and TensorFlow.js integration
+  * 
+@@ -12,7 +12,7 @@
+ 
+ class LotteryML {
+   constructor() {
+-    this.version = "2.0.0";
++    this.version = "2.4.1";
+     this.status = "initialized";
+     this.model = null;
+     this.isTFLoaded = typeof tf !== 'undefined';
+@@ -120,6 +120,11 @@
+     return frequency;
+   }
+ 
++  // Ensure temporal functions are available
++  if (typeof applyTemporalWeighting === 'undefined') {
++    console.warn('Temporal functions not found. Adding fallbacks.');
++  }
++
+   /**
+    * Enhanced frequency analysis with temporal weighting
+    * @param {Array} draws - Historical draw data
+diff --git a/js/strategy.js b/js/strategy.js
+index jkl012..mno345 100644
+--- a/js/strategy.js
++++ b/js/strategy.js
+@@ -1,14 +1,14 @@
+ /**
+  * STRATEGY MANAGER
+- * Version: 2.0.0 | Updated: 2025-08-20 02:30 PM EST
++ * Version: 2.4.1 | Updated: 2024-08-21 09:30 AM EST
+  * Complete strategy management with localStorage persistence
+  */
+ 
+ class Strategy {
+   constructor(name, weights) {
+     this.name = name;
+     this.weights = weights;
+-    this.version = "2.0.0";
++    this.version = "2.4.1";
+     this.created = new Date().toISOString();
+   }
+ 
+diff --git a/js/utils.js b/js/utils.js
+index abc123..def456 100644
+--- a/js/utils.js
++++ b/js/utils.js
+@@ -1,6 +1,6 @@
+ /**
+  * LOTTERY ANALYSIS UTILITIES
+- * Version: 1.5.0 | Updated: 2024-08-21 09:00 AM EST
++ * Version: 2.4.1 | Updated: 2024-08-21 09:30 AM EST
+  * Changes:
+  * - Added temporal weighting analysis
+  * - Added number pairing/grouping analysis
+@@ -17,29 +17,34 @@
+  * @version 1.1.0 | Updated: 2024-08-21
+  */
+ function calculateEnergy(numbers, weights) {
++  const defaultWeights = {
++    prime: 0.3,
++    digitalRoot: 0.2,
++    mod5: 0.2,
++    gridPosition: 0.3
++  };
++  const effectiveWeights = weights || defaultWeights;
++  
+   return numbers.map(num => {
+     const energyComponents = {
+       isPrime: isPrime(num) ? 1 : 0,
+       digitalRoot: getDigitalRoot(num),
+       mod5: (num % 5) * 0.2,
+       gridScore: getGridPositionScore(num)
+     };
+ 
+-    const energy = (energyComponents.isPrime * weights.prime) +
+-                   (energyComponents.digitalRoot * weights.digitalRoot) +
+-                   (energyComponents.mod5 * weights.mod5) +
+-                   (energyComponents.gridScore * weights.gridPosition);
++    const energy = (energyComponents.isPrime * effectiveWeights.prime) +
++                   (energyComponents.digitalRoot * effectiveWeights.digitalRoot) +
++                   (energyComponents.mod5 * effectiveWeights.mod5) +
++                   (energyComponents.gridScore * effectiveWeights.gridPosition);
+ 
+     return {
+       number: num,
+       ...energyComponents,
+       energy: energy
+     };
+   });
+ }
+ 
+ // =============== TEMPORAL ANALYSIS =============== //
+ /**
+  * Applies exponential time decay to an array of draws
+@@ -134,6 +139,10 @@
+   return frequency;
+ }
+ 
++// Make temporal functions available globally
++window.applyTemporalWeighting = applyTemporalWeighting;
++window.calculateTemporalFrequency = calculateTemporalFrequency;
++
+ // =============== SUPPORTING FUNCTIONS =============== //
+ /** 
+  * Checks if a number is prime 
+  

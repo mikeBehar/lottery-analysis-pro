@@ -1,0 +1,449 @@
+diff --git a/js/app.js b/js/app.js
+index ghi789..jkl012 100644
+--- a/js/app.js
++++ b/js/app.js
+@@ -1,8 +1,8 @@
+ /**
+  * LOTTERY ANALYSIS PRO - CORE APPLICATION
+- * Version: 2.4.1 | Last Updated: 2024-08-20 08:15 PM EST
+- * Fix: Corrected function definition order
++ * Version: 2.4.2 | Last Updated: 2024-08-21 02:45 PM EST
+  */
++
+ (function() {
+   'use strict';
+ 
+@@ -65,7 +65,7 @@
+     analysisHistory: [],
+     isAnalyzing: false,
+     temporalDecay: 'medium',
+-    decayRate: CONFIG.temporalDecayRates.medium
++    decayRate: CONFIG.temporalDecayRates.medium,
+     backtestResults: null
+   };
+ 
+@@ -121,6 +121,7 @@
+   function initEventListeners() {
+     if (!elements.uploadInput || !elements.analyzeBtn) {
+       console.error('Required elements missing');
++      logError('Application initialization failed: Required elements missing');
+       return;
+     }
+ 
+@@ -150,7 +151,7 @@
+ 
+   async function handleFileUpload(event) {
+     try {
+-      const file = event.target.files[0];
++      const file = validateAndGetFile(event);
+       if (!file) return;
+ 
+       if (!file.name.endsWith('.csv')) {
+@@ -158,7 +159,7 @@
+       }
+ 
+       showProgress('Parsing CSV file...');
+-      const content = await readFile(file);
++      const content = await readFileContent(file);
+       await parseCSVWithPapaParse(content);
+       hideProgress();
+       
+@@ -168,6 +169,14 @@
+       resetFileInput();
+     }
+   }
++  
++  function validateAndGetFile(event) {
++    const file = event.target.files[0];
++    if (!file) {
++      logError('No file selected for upload');
++    }
++    return file;
++  }
+ 
+   async function runAnalysis() {
+     if (state.isAnalyzing) return;
+@@ -178,32 +187,18 @@
+       }
+ 
+       // Start timing
+-      const analysisStartTime = Date.now();
+-      showProgress('Analyzing data...');
+-      console.log('Running', state.currentMethod, 'analysis on', state.draws.length, 'draws...');
+-      
+-      const allNumbers = Array.from({length: 69}, (_, i) => i + 1);
+-      const energyData = calculateEnergy(allNumbers, CONFIG.energyWeights);
+-
+-      const mlPrediction = await getMLPrediction(state.draws, state.decayRate);
+-      const backtestResults = await runComprehensiveBacktesting(state.decayRate);
+-      state.backtestResults = backtestResults;
+-
+-      // End timing and calculate duration
+-      const analysisTime = Date.now() - analysisStartTime;
+-      const analysisTimeSeconds = (analysisTime / 1000).toFixed(1);
+-      console.log(`Analysis completed in ${analysisTimeSeconds} seconds`);
+-      
+-      // Add timing to display
+-      if (state.backtestResults.available) {
+-        state.backtestResults.analysisTime = analysisTimeSeconds;
+-      }
+-
+-      displayResults(energyData, mlPrediction, backtestResults);
++      const analysisResults = await executeCompleteAnalysis();
++      displayAnalysisResults(analysisResults);
+       hideProgress();
+ 
+     } catch (error) {
+       hideProgress();
++      logError('Analysis failed', error);
++    }
++  }
++  
++  function logError(title, error = null) {
++    if (error) {
+       showError('Analysis failed', error);
+     }
+   }
+@@ -211,6 +206,38 @@
+   // ==================== COMPREHENSIVE BACKTESTING ==================== //
+   async function runComprehensiveBacktesting(decayRate) {
+     if (state.draws.length < CONFIG.backtestSettings.initialTrainingSize + CONFIG.backtestSettings.testWindowSize) {
++      return createInsufficientDataResponse();
++    }
++
++    showProgress('Running comprehensive backtesting...');
++
++    const results = initializeBacktestResults();
++    
++    await executeBacktestSimulations(results, decayRate);
++    
++    results.performanceMetrics = calculatePerformanceMetrics(results);
++    return results;
++  }
++  
++  function initializeBacktestResults() {
++    return {
++      available: true,
++      method: state.currentMethod,
++      totalTests: 0,
++      totalDrawsTested: 0,
++      hits: { 3: 0, 4: 0, 5: 0, 6: 0 },
++      simulations: [],
++      performanceMetrics: {}
++    };
++  }
++  
++  function createInsufficientDataResponse() {
++    const minRequired = CONFIG.backtestSettings.initialTrainingSize + CONFIG.backtestSettings.testWindowSize;
++    return {
++      available: false,
++      message: `Need at least ${minRequired} draws for backtesting`
++    };
++    if (state.draws.length < CONFIG.backtestSettings.initialTrainingSize + CONFIG.backtestSettings.testWindowSize) {
+       return {
+         available: false,
+         message: `Need at least ${CONFIG.backtestSettings.initialTrainingSize + CONFIG.backtestSettings.testWindowSize} draws for backtesting`
+@@ -218,6 +245,10 @@
+     }
+ 
+     showProgress('Running comprehensive backtesting...');
++  }
++  
++  async function executeBacktestSimulations(results, decayRate) {
++    const testWindowSize = CONFIG.backtestSettings.testWindowSize;
+ 
+     const results = {
+       available: true,
+@@ -229,7 +260,7 @@
+       performanceMetrics: {}
+     };
+ 
+-    for (let i = CONFIG.backtestSettings.initialTrainingSize; i < state.draws.length - CONFIG.backtestSettings.testWindowSize; i += CONFIG.backtestSettings.stepSize) {
++    for (let i = CONFIG.backtestSettings.initialTrainingSize; i < state.draws.length - testWindowSize; i += CONFIG.backtestSettings.stepSize) {
+       const trainingData = state.draws.slice(0, i);
+       const testData = state.draws.slice(i, i + CONFIG.backtestSettings.testWindowSize);
+ 
+@@ -237,7 +268,7 @@
+         const currentTestDraw = testData[j];
+         const nextDraw = testData[j + 1];
+         
+-        const historicalData = [...trainingData, ...testData.slice(0, j + 1)];
++        const historicalData = prepareHistoricalData(trainingData, testData, j);
+         const prediction = await getPredictionForBacktest(historicalData, decayRate);
+         
+         const matchedNumbers = nextDraw.numbers.filter(num => prediction.numbers.includes(num));
+@@ -259,10 +290,14 @@
+         results.totalDrawsTested++;
+       }
+     }
+-
+-    results.performanceMetrics = calculatePerformanceMetrics(results);
+-    return results;
+-  }
++  }
++  
++  function prepareHistoricalData(trainingData, testData, currentIndex) {
++    return [...trainingData, ...testData.slice(0, currentIndex + 1)];
++  }
++  
++  function processTestResult(results, nextDraw, prediction) {
++  }
+ 
+   async function getPredictionForBacktest(draws, decayRate) {
+     const allNumbers = Array.from({length: 69}, (_, i) => i + 1);
+@@ -270,7 +305,7 @@
+ 
+     switch (state.currentMethod) {
+       case 'energy':
+-        return { 
++        return createEnergyPrediction(energyData);
+           numbers: energyData.sort((a, b) => b.energy - a.energy).slice(0, 10).map(n => n.number), 
+           confidence: 0.7, 
+           model: 'energy' 
+@@ -279,15 +314,19 @@
+         return getFrequencyFallback(draws, decayRate);
+       case 'ml':
+         return await getMLPrediction(draws, decayRate);
+-      case 'combined':
+       default:
+-        const mlResult = await getMLPrediction(draws, decayRate);
+-        return {
+-          numbers: [...new Set([...mlResult.numbers, ...energyData.sort((a, b) => b.energy - a.energy).slice(0, 5).map(n => n.number)])].slice(0, 10),
+-          confidence: (mlResult.confidence + 0.7) / 2,
+-          model: 'combined'
+-        };
++        return await getCombinedPrediction(draws, decayRate, energyData);
+     }
++  }
++  
++  function createEnergyPrediction(energyData) {
++    const topEnergyNumbers = energyData.sort((a, b) => b.energy - a.energy).slice(0, 10).map(n => n.number);
++    return { numbers: topEnergyNumbers, confidence: 0.7, model: 'energy' };
++  }
++  
++  async function getCombinedPrediction(draws, decayRate, energyData) {
++    const mlResult = await getMLPrediction(draws, decayRate);
++    return combinePredictions(mlResult, energyData);
+   }
+ 
+   function calculatePerformanceMetrics(results) {
+@@ -325,6 +364,13 @@
+     
+     return {
+       hitRate: hitRate,
++      precision: precision,
++      recall: recall,
++      totalSpent: totalSpent,
++      totalWon: totalWon,
++      roi: roi,
++      hitDistribution: results.hits
++    calculateFinancialMetrics(results) {
+       precision: precision,
+       recall: recall,
+       totalSpent: totalSpent,
+@@ -334,6 +380,31 @@
+     };
+   }
+   
++  function calculateFinancialMetrics(results) {
++    const ticketCost = 2;
++    const prizeMap = { 3: 10, 4: 100, 5: 1000, 6: 10000 };
++    let totalSpent = results.totalTests * ticketCost;
++    let totalWon = 0;
++    
++    Object.entries(results.hits).forEach(([hitCount, count]) => {
++      if (prizeMap[hitCount]) {
++        totalWon += count * prizeMap[hitCount];
++      }
++    });
++    
++    const roi = totalSpent > 0 ? ((totalWon - totalSpent) / totalSpent) * 100 : 0;
++    
++    return { totalSpent, totalWon, roi };
++  }
++  
++  function calculatePredictionMetrics(results) {
++    let totalPredictedNumbers = 0;
++    let correctPredictions = 0;
++    
++    results.simulations.forEach(sim => {
++      totalPredictedNumbers += sim.predicted.length;
++      correctPredictions += sim.matched.length;
++    });
++    
+   // ==================== ML & PREDICTION FUNCTIONS ==================== //
+   async function getMLPrediction(draws = state.draws, decayRate = state.decayRate) {
+     try {
+@@ -348,6 +419,7 @@
+       return prediction;
+       
+     } catch (error) {
++      logError('ML prediction failed, using fallback', error);
+       console.warn('ML prediction failed, using fallback:', error);
+       return getFrequencyFallback(draws, decayRate);
+     }
+@@ -373,9 +445,41 @@
+   // ==================== DISPLAY FUNCTIONS ==================== //
+   function displayResults(energyData, mlPrediction, backtestResults) {
+     try {
+-      displayEnergyResults(energyData, elements.energyResults);
+-      displayMLResults(mlPrediction, elements.mlResults);
++      updateEnergyDisplay(energyData);
++      updateMLDisplay(mlPrediction);
++      updateRecommendations(energyData, mlPrediction);
++      updateBacktestDisplay(backtestResults);
++    } catch (error) {
++      logError('Display failed', error);
++    }
++  }
++  
++  async function executeCompleteAnalysis() {
++    const analysisStartTime = Date.now();
++    showProgress('Analyzing data...');
++    console.log('Running', state.currentMethod, 'analysis on', state.draws.length, 'draws...');
++    
++    const allNumbers = Array.from({length: 69}, (_, i) => i + 1);
++    const energyData = calculateEnergy(allNumbers, CONFIG.energyWeights);
++
++    const mlPrediction = await getMLPrediction(state.draws, state.decayRate);
++    const backtestResults = await runComprehensiveBacktesting(state.decayRate);
++    state.backtestResults = backtestResults;
++
++    // Calculate and add timing information
++    const analysisTime = calculateAnalysisTime(analysisStartTime);
++    if (state.backtestResults.available) {
++      state.backtestResults.analysisTime = analysisTime.seconds;
++    }
++
++    return { energyData, mlPrediction, backtestResults, analysisTime };
++  }
++  
++  function calculateAnalysisTime(startTime) {
++    const analysisTime = Date.now() - startTime;
++    const analysisTimeSeconds = (analysisTime / 1000).toFixed(1);
++    console.log(`Analysis completed in ${analysisTimeSeconds} seconds`);
++    return { milliseconds: analysisTime, seconds: analysisTimeSeconds };
++  }
+       
+-      const recommendations = generateRecommendations(energyData, mlPrediction);
+-      displayRecommendations(recommendations);
+-      
+-      displayBacktestResults(backtestResults);
+-      
+-    } catch (error) {
+-      console.error('Display failed:', error);
+-    }
+-  }
+-
+   function generateRecommendations(energyData, mlPrediction) {
+     const topEnergy = [...energyData].sort((a, b) => b.energy - a.energy).slice(0, 6);
+     const mlNumbers = mlPrediction.numbers.slice(0, 6);
+@@ -391,6 +495,10 @@
+   function findOverlap(energyArray, mlArray) {
+     const energyNumbers = energyArray.map(item => item.number);
+     return mlArray.filter(num => energyNumbers.includes(num));
++  }
++  
++  function updateEnergyDisplay(energyData) {
++    displayEnergyResults(energyData, elements.energyResults);
+   }
+ 
+   function displayMLResults(mlPrediction, container) {
+@@ -408,6 +516,10 @@
+     `;
+   }
+ 
++  function updateMLDisplay(mlPrediction) {
++    displayMLResults(mlPrediction, elements.mlResults);
++  }
++
+   function displayRecommendations(recommendations) {
+     if (!elements.recommendations) return;
+     
+@@ -445,6 +557,10 @@
+       </div>
+     `;
+   }
++  
++  function updateRecommendations(energyData, mlPrediction) {
++    displayRecommendations(generateRecommendations(energyData, mlPrediction));
++  }
+ 
+   function displayBacktestResults(results) {
+     if (!results.available) {
+@@ -497,6 +613,10 @@
+       </div>
+     `;
+   }
++  
++  function updateBacktestDisplay(backtestResults) {
++    displayBacktestResults(backtestResults);
++  }
+ 
+   // ==================== ERROR FILTERING ==================== //
+   const originalError = console.error;
+@@ -508,6 +628,10 @@
+     
+     if (isExternal && !errorMsg.includes('PapaParse')) return;
+     originalError.apply(console, arguments);
++  // Custom logger function
++  function logError(message, error = null) {
++    const timestamp = new Date().toISOString();
++    console.error(`[${timestamp}] Lottery Analysis Error: ${message}`, error || '');
+   };
+ 
+ })();
+diff --git a/js/ml.js b/js/ml.js
+index def456..ghi789 100644
+--- a/js/ml.js
++++ b/js/ml.js
+@@ -1,6 +1,6 @@
+ /**
+  * MACHINE LEARNING MODULE FOR LOTTERY ANALYSIS
+- * Version: 2.0.0 | Updated: 2025-08-20
++ * Version: 2.4.2 | Updated: 2024-08-21 02:45 PM EST
+  * 
+  * Provides machine learning capabilities for lottery number prediction
+  * Includes both placeholder implementations and TensorFlow.js integration
+@@ -12,7 +12,7 @@
+ 
+ class LotteryML {
+   constructor() {
+-    this.version = "2.0.0";
++    this.version = "2.4.2";
+     this.status = "initialized";
+     this.model = null;
+     this.isTFLoaded = typeof tf !== 'undefined';
+diff --git a/js/strategy.js b/js/strategy.js
+index jkl012..mno345 100644
+--- a/js/strategy.js
++++ b/js/strategy.js
+@@ -1,6 +1,6 @@
+ /**
+  * STRATEGY MANAGER
+- * Version: 2.0.0 | Updated: 2025-08-20 02:30 PM EST
++ * Version: 2.4.2 | Updated: 2024-08-21 02:45 PM EST
+  * Complete strategy management with localStorage persistence
+  */
+ 
+@@ -8,7 +8,7 @@
+   constructor(name, weights) {
+     this.name = name;
+     this.weights = weights;
+-    this.version = "2.0.0";
++    this.version = "2.4.2";
+     this.created = new Date().toISOString();
+   }
+ 
+diff --git a/js/utils.js b/js/utils.js
+index abc123..def456 100644
+--- a/js/utils.js
++++ b/js/utils.js
+@@ -1,6 +1,6 @@
+ /**
+  * LOTTERY ANALYSIS UTILITIES
+- * Version: 1.5.0 | Updated: 2024-08-21 09:00 AM EST
++ * Version: 2.4.2 | Updated: 2024-08-21 02:45 PM EST
+  * Changes:
+  * - Added temporal weighting analysis
+  * - Added number pairing/grouping analysis
