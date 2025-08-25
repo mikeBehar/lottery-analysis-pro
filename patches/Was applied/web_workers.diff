@@ -1,0 +1,278 @@
+diff --git a/js/app.js b/js/app.js
+index jkl012..mno345 100644
+--- a/js/app.js
++++ b/js/app.js
+@@ -1,6 +1,6 @@
+ /**
+  * LOTTERY ANALYSIS PRO - CORE APPLICATION
+- * Version: 2.4.2 | Last Updated: 2024-08-21 02:45 PM EST
++ * Version: 2.5.0 | Last Updated: 2025-08-21 03:30 PM EST
+  */
+ 
+ (function() {
+@@ -38,7 +38,9 @@
+     currentMethod: 'combined',
+     analysisHistory: [],
+     isAnalyzing: false,
++    isCancelled: false,
+     temporalDecay: 'medium',
++    activeWorkers: new Map(),
+     decayRate: CONFIG.temporalDecayRates.medium,
+     backtestResults: null
+   };
+@@ -56,7 +58,9 @@
+     formulaBuilder: document.getElementById('formula-builder'),
+     saveStrategy: document.getElementById('save-strategy'),
+     methodSelector: document.createElement('select'),
+-    temporalDecaySelector: document.createElement('select')
++    temporalDecaySelector: document.createElement('select'),
++    cancelBtn: document.createElement('button'),
++    progressText: document.createElement('div')
+   };
+ 
+   // ==================== INITIALIZATION ==================== //
+@@ -90,6 +94,18 @@
+     // Add to control panel
+     const controlPanel = document.querySelector('.control-panel');
+     controlPanel.appendChild(temporalLabel);
++    
++    // Create cancel button
++    elements.cancelBtn.id = 'cancel-analysis';
++    elements.cancelBtn.textContent = 'Cancel Analysis';
++    elements.cancelBtn.className = 'cancel-btn';
++    elements.cancelBtn.style.display = 'none';
++    controlPanel.appendChild(elements.cancelBtn);
++    
++    // Create progress text element
++    elements.progressText.id = 'progress-text';
++    elements.progressText.className = 'progress-text';
++    document.querySelector('header').appendChild(elements.progressText);
+ 
+     elements.progressIndicator.className = 'progress-indicator';
+     elements.progressIndicator.style.display = 'none';
+@@ -126,6 +142,7 @@
+ 
+     elements.uploadInput.addEventListener('change', handleFileUpload);
+     elements.analyzeBtn.addEventListener('click', runAnalysis);
++    elements.cancelBtn.addEventListener('click', cancelAnalysis);
+     
+     elements.temporalDecaySelector.addEventListener('change', (e) => {
+       if (!CONFIG.temporalDecayRates[e.target.value]) {
+@@ -141,6 +158,16 @@
+       state.currentMethod = e.target.value;
+     });
+   }
++  
++  function cancelAnalysis() {
++    state.isCancelled = true;
++    cancelAllWorkers();
++    hideProgress();
++    updateProgress('Analysis cancelled');
++    setTimeout(() => {
++      elements.progressText.textContent = '';
++    }, 2000);
++  }
+ 
+   // ==================== CORE FUNCTIONS ==================== //
+   function showProgress(message) {
+@@ -148,6 +175,7 @@
+     elements.progressIndicator.innerHTML = `
+       <div class="progress-content">
+         <div class="spinner"></div>
++        <div class="progress-message">${message}</div>
+         <p>${message}</p>
+       </div>
+     `;
+@@ -157,6 +185,8 @@
+ 
+   function hideProgress() {
+     elements.progressIndicator.style.display = 'none';
++    elements.cancelBtn.style.display = 'none';
++    elements.progressText.textContent = '';
+     elements.analyzeBtn.disabled = false;
+     state.isAnalyzing = false;
+   }
+@@ -178,12 +208,22 @@
+       resetFileInput();
+     }
+   }
++  
++  function updateProgress(message, percentage = null) {
++    if (elements.progressText) {
++      elements.progressText.textContent = message;
++      if (percentage !== null) {
++        elements.progressText.textContent += ` (${percentage}%)`;
++      }
++    }
++  }
+ 
+   async function runAnalysis() {
+     if (state.isAnalyzing) return;
+     
+     try {
+       if (state.draws.length === 0) {
++        updateProgress('Please upload CSV file first');
+         throw new Error('Please upload CSV file first');
+       }
+ 
+@@ -192,6 +232,7 @@
+       displayAnalysisResults(analysisResults);
+       hideProgress();
+ 
++      state.isCancelled = false;
+     } catch (error) {
+       hideProgress();
+       logError('Analysis failed', error);
+@@ -204,12 +245,15 @@
+     }
+   }
+   
+-  async function executeCompleteAnalysis() {
++  async function executeCompleteAnalysis() {    
+     const analysisStartTime = Date.now();
+     showProgress('Analyzing data...');
++    elements.cancelBtn.style.display = 'inline-block';
++    updateProgress('Starting analysis...');
++    
+     console.log('Running', state.currentMethod, 'analysis on', state.draws.length, 'draws...');
+     
+-    const allNumbers = Array.from({length: 69}, (_, i) => i + 1);
++    const allNumbers = generateAllNumbers();
+     const energyData = calculateEnergy(allNumbers, CONFIG.energyWeights);
+ 
+     const mlPrediction = await getMLPrediction(state.draws, state.decayRate);
+@@ -224,6 +268,10 @@
+     return { energyData, mlPrediction, backtestResults, analysisTime };
+   }
+   
++  function generateAllNumbers() {
++    return Array.from({length: 69}, (_, i) => i + 1);
++  }
++  
+   function calculateAnalysisTime(startTime) {
+     const analysisTime = Date.now() - startTime;
+     const analysisTimeSeconds = (analysisTime / 1000).toFixed(1);
+@@ -231,6 +279,106 @@
+     return { milliseconds: analysisTime, seconds: analysisTimeSeconds };
+   }
+   
++  // ==================== WEB WORKER INTEGRATION ==================== //
++  
++  async function runComprehensiveBacktesting(decayRate) {
++    if (state.draws.length < CONFIG.backtestSettings.initialTrainingSize + CONFIG.backtestSettings.testWindowSize) {
++      return createInsufficientDataResponse();
++    }
++
++    updateProgress('Initializing backtesting worker...');
++    
++    return new Promise((resolve, reject) => {
++      // Create backtesting worker
++      const backtestWorker = new Worker('js/workers/backtest-worker.js');
++      state.activeWorkers.set('backtest', backtestWorker);
++      
++      backtestWorker.onmessage = function(e) {
++        const { type, data } = e.data;
++        
++        switch (type) {
++          case 'progress':
++            updateProgress(data.message, data.percentage);
++            break;
++          case 'result':
++            state.activeWorkers.delete('backtest');
++            resolve(data.results);
++            break;
++          case 'error':
++            state.activeWorkers.delete('backtest');
++            reject(new Error(data.message));
++            break;
++        }
++      };
++      
++      backtestWorker.onerror = function(error) {
++        state.activeWorkers.delete('backtest');
++        reject(error);
++      };
++      
++      // Send data to worker
++      backtestWorker.postMessage({
++        draws: state.draws,
++        decayRate: decayRate,
++        method: state.currentMethod,
++        config: CONFIG.backtestSettings
++      });
++    });
++  }
++  
++  async function getMLPrediction(draws = state.draws, decayRate = state.decayRate) {
++    if (draws.length < 50) {
++      return getFrequencyFallback(draws, decayRate);
++    }
++
++    updateProgress('Running ML prediction...');
++    
++    return new Promise((resolve, reject) => {
++      // Create ML worker
++      const mlWorker = new Worker('js/workers/ml-worker.js');
++      state.activeWorkers.set('ml', mlWorker);
++      
++      mlWorker.onmessage = function(e) {
++        const { type, data } = e.data;
++        
++        switch (type) {
++          case 'progress':
++            updateProgress(data.message);
++            break;
++          case 'result':
++            state.activeWorkers.delete('ml');
++            resolve(data.prediction);
++            break;
++          case 'error':
++            state.activeWorkers.delete('ml');
++            resolve(getFrequencyFallback(draws, decayRate)); // Fallback on error
++            break;
++        }
++      };
++      
++      mlWorker.onerror = function(error) {
++        state.activeWorkers.delete('ml');
++        resolve(getFrequencyFallback(draws, decayRate)); // Fallback on error
++      };
++      
++      // Send data to worker
++      mlWorker.postMessage({
++        draws: draws,
++        decayRate: decayRate
++      });
++    });
++  }
++  
++  function cancelAllWorkers() {
++    state.activeWorkers.forEach((worker, key) => {
++      worker.terminate();
++      console.log(`Terminated ${key} worker`);
++    });
++    state.activeWorkers.clear();
++  }
++  
++  // ==================== ORIGINAL FUNCTIONS (KEPT FOR FALLBACK) ==================== //
++  
+   function getFrequencyFallback(draws = state.draws, decayRate = state.decayRate) {
+     // Use the new temporal functions for a better fallback
+     const weightedDraws = applyTemporalWeighting(draws, decayRate);
+@@ -247,6 +395,8 @@
+       numbers: predictedNumbers,
+       confidence: 0.65,
+       model: 'fallback_temporal_frequency',
++      method: 'frequency',
++      timestamp: new Date().toISOString(),
+       warning: 'Using temporal frequency-based fallback'
+     };
+   }
+@@ -262,6 +412,7 @@
+   function hideProgress() {
+     elements.progressIndicator.style.display = 'none';
+     elements.analyzeBtn.disabled = false;
++    cancelAllWorkers();
+     state.isAnalyzing = false;
+   }
+ 

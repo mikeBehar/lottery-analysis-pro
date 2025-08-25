@@ -1,0 +1,55 @@
+diff --git a/js/utils.js b/js/utils.js
+index abc123..def456 100644
+--- a/js/utils.js
++++ b/js/utils.js
+@@ -85,4 +85,46 @@ function getGridPositionScore(num) {
+   // Return grid score with bounds checking
+   return GRID[row]?.[col] ?? DEFAULT_GRID_SCORE;
+ }
++
++// =============== TEMPORAL WEIGHTING =============== //
++/**
++ * Applies exponential time decay to draws (recent draws weighted higher)
++ * @param {Array} draws - Array of draw objects with date property
++ * @param {number} decayRate - Decay rate (0-1), higher = faster decay
++ * @returns {Array} Draws with temporal weights added
++ * @version 1.0.0 | Created: 2025-08-20
++ */
++function applyTemporalWeighting(draws, decayRate = 0.1) {
++  if (!draws.length) return draws;
++  
++  const mostRecentDate = new Date(Math.max(...draws.map(d => d.date.getTime())));
++  const maxAgeDays = (mostRecentDate - new Date(Math.min(...draws.map(d => d.date.getTime())))) / (1000 * 60 * 60 * 24);
++  
++  return draws.map(draw => {
++    const ageDays = (mostRecentDate - draw.date) / (1000 * 60 * 60 * 24);
++    const normalizedAge = ageDays / maxAgeDays;
++    const weight = Math.exp(-decayRate * normalizedAge * 10); // Exponential decay
++    
++    return {
++      ...draw,
++      temporalWeight: weight,
++      weightedNumbers: draw.numbers.map(num => ({
++        number: num,
++        weight: weight
++      }))
++    };
++  });
++}
++
++/**
++ * Calculates frequency with temporal weighting
++ * @param {Array} weightedDraws - Draws with temporal weights
++ * @returns {Array} Frequency map with temporal weighting
++ */
++function calculateTemporalFrequency(weightedDraws) {
++  const frequency = new Array(70).fill(0);
++  weightedDraws.forEach(draw => {
++    draw.weightedNumbers.forEach(weightedNum => {
++      if (weightedNum.number >= 1 && weightedNum.number <= 69) {
++        frequency[weightedNum.number] += weightedNum.weight;
++      }
++    });
++  });
++  return frequency;
++}

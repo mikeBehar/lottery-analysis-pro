@@ -4,12 +4,13 @@
  * Handles machine learning predictions in background thread
  */
 
-importScripts('../ml.js', '../utils.js');
+// Import all required dependencies
+importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js', '../utils.js', '../ml.js');
 
 let shouldStop = false;
 
 // Initialize ML instance
-const lotteryML = new LotteryML();
+const lotteryML = new self.LotteryML();
 
 self.onmessage = function(e) {
   if (e.data.type === 'cancel') {

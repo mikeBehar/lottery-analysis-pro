@@ -4,6 +4,17 @@
  */
 
 (function() {
+  // ==================== DOM ELEMENTS ==================== //
+  const elements = {
+    methodSelector: document.createElement('select'),
+    temporalDecaySelector: document.createElement('select'),
+    analyzeBtn: document.getElementById('analyzeBtn'),
+    uploadInput: document.getElementById('csvUpload'),
+    progressIndicator: document.createElement('div'),
+    backtestResults: document.createElement('div'),
+    recommendations: document.getElementById('recommendations'),
+    // Add more as needed for your UI
+  };
   'use strict';
 
   // ==================== CONSTANTS ==================== //
@@ -32,43 +43,18 @@
 
   // ==================== STATE ==================== //
   const state = {
-    draws: [],
-    strategies: [],
-    currentStrategy: null,
-    currentMethod: 'combined',
-    analysisHistory: [],
-    isAnalyzing: false,
-    temporalDecay: 'medium',
-    decayRate: CONFIG.temporalDecayRates.medium,
-    backtestResults: null,
-    isCancelled: false,
-    activeWorkers: null
-  };
-
-  // ==================== DOM ELEMENTS ==================== //
-  const elements = {
-    uploadInput: document.getElementById('csvUpload'),
-    analyzeBtn: document.getElementById('analyzeBtn'),
-    energyResults: document.getElementById('energy-results'),
-    mlResults: document.getElementById('ml-results'),
-    recommendations: document.getElementById('recommendations'),
-    formulaBuilder: document.getElementById('formula-builder'),
-    saveStrategy: document.getElementById('save-strategy'),
-    methodSelector: document.createElement('select'),
-    temporalDecaySelector: document.createElement('select'),
-    progressIndicator: document.createElement('div'),
-    backtestResults: document.createElement('div')
-  };
-
-  // ==================== UTILITY FUNCTIONS ==================== //
-  function readFileContent(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result);
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsText(file);
-    });
-  }
+  draws: [],
+  strategies: [],
+  currentStrategy: null,
+  currentMethod: 'combined',
+  analysisHistory: [],
+  isAnalyzing: false,
+  temporalDecay: 'medium',
+  decayRate: CONFIG.temporalDecayRates.medium,
+  backtestResults: null,
+  isCancelled: false,
+  activeWorkers: null
+};
 
   function validateAndGetFile(event) {
     const file = event.target.files[0];
@@ -101,23 +87,19 @@
             reject(new Error(`CSV errors: ${results.errors.map(e => e.message).join(', ')}`));
             return;
           }
-
           try {
             state.draws = results.data
               .filter(row => row.length >= 10)
               .map(row => {
                 const [mm, dd, yyyy, n1, n2, n3, n4, n5, n6, powerball] = row;
-                
                 const numbers = [n1, n2, n3, n4, n5, n6].map(Number);
                 if (numbers.some(isNaN)) {
                   throw new Error('Invalid number format in CSV');
                 }
-
                 const date = new Date(`${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`);
                 if (isNaN(date.getTime())) {
                   throw new Error(`Invalid date: ${yyyy}-${mm}-${dd}`);
                 }
-
                 return {
                   date: date,
                   numbers: numbers,
@@ -125,11 +107,9 @@
                 };
               })
               .filter(draw => !isNaN(draw.powerball));
-
             elements.analyzeBtn.disabled = false;
             console.log(`Successfully parsed ${state.draws.length} draws`);
             resolve(state.draws);
-            
           } catch (error) {
             reject(error);
           }

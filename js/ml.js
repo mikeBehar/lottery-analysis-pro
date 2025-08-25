@@ -27,7 +27,7 @@ class LotteryML {
    */
   async trainLSTM(draws, options = {}) {
     try {
-      if (!this.isTFLoaded) {
+      if (typeof tf === 'undefined') {
         throw new Error('TensorFlow.js not loaded. Please include TensorFlow.js library');
       }
 
@@ -153,18 +153,23 @@ class LotteryML {
    */
   async predictNextNumbers(draws, decayRate = 0.1) {
     try {
-      if (this.model && this.status === "trained") {
+      if (this.model && this.status === 'trained') {
         // The LSTM prediction itself doesn't directly use decayRate in its current form,
         // but the input data can be weighted.
-        return this.predictWithLSTM(applyTemporalWeighting(draws, decayRate));
+        const weightedDraws = this.applyTemporalWeightingWithFallback(draws, decayRate);
+        return await this.predictWithLSTM(weightedDraws);
       } else {
         // If model isn't trained, use the temporal frequency analysis
-        return this.predictWithTemporalFrequency(draws, decayRate);
+        return await this.predictWithTemporalFrequency(draws, decayRate);
       }
     } catch (error) {
       console.error('Prediction failed:', error);
       return this.getFallbackPrediction();
     }
+  }
+
+  applyTemporalWeightingWithFallback(draws, decayRate) {
+    return typeof applyTemporalWeighting === 'function' ? applyTemporalWeighting(draws, decayRate) : draws;
   }
 
   /**
@@ -227,27 +232,32 @@ class LotteryML {
 
 
 
+
   /**
    * Enhanced frequency analysis with temporal weighting
    * @param {Array} draws - Historical draw data
    * @param {number} decayRate - Temporal decay rate
    * @returns {Object} Temporal-weighted prediction
-
-// Ensure temporal functions are available (outside class definition)
-if (typeof applyTemporalWeighting === 'undefined') {
-  console.warn('Temporal functions not found. Adding fallbacks.');
-}
-      .map((weightedCount, number) => ({ number, weightedCount }))
-      .filter(item => item.number >= 1 && item.number <= 69)
-      .sort((a, b) => b.weightedCount - a.weightedCount)
-      .slice(0, 10)
-      .map(item => item.number);
-    
-    return {
-      numbers: predictedNumbers,
-      confidence: Math.min(0.82, 0.65 + (weightedDraws.length > 100 ? 0.17 : 0)),
-      model: 'temporal_frequency'
-    };
+   */
+  async predictWithTemporalFrequency(draws, decayRate = 0.1) {
+    try {
+      const weightedDraws = applyTemporalWeighting(draws, decayRate);
+      const temporalFrequency = calculateTemporalFrequency(weightedDraws);
+      const predictedNumbers = temporalFrequency
+        .map((weightedCount, number) => ({ number, weightedCount }))
+        .filter(item => item.number >= 1 && item.number <= 69)
+        .sort((a, b) => b.weightedCount - a.weightedCount)
+        .slice(0, 10)
+        .map(item => item.number);
+      return {
+        numbers: predictedNumbers,
+        confidence: Math.min(0.82, 0.65 + (weightedDraws.length > 100 ? 0.17 : 0)),
+        model: 'temporal_frequency'
+      };
+    } catch (error) {
+      console.error('Temporal frequency prediction failed:', error);
+      return this.getFallbackPrediction();
+    }
   }
 
    /**
@@ -330,20 +340,26 @@ if (typeof applyTemporalWeighting === 'undefined') {
   }
 }
 
-// Initialize global instance with error handling
-try {
-  window.lotteryML = new LotteryML();
-  console.log('LotteryML module initialized successfully');
-} catch (error) {
-  console.error('Failed to initialize LotteryML:', error);
-  // Fallback to basic object if class fails
-  window.lotteryML = {
-    predictNextNumbers: async () => ({
-      numbers: [7, 19, 23, 31, 42, 56, 11, 15, 44, 58],
-      confidence: 0.5,
-      model: 'fallback',
-      warning: 'ML module initialization failed'
-    }),
-    getStatus: () => ({ status: 'error', message: 'Initialization failed' })
-  };
+// Only initialize if we're in the main thread (window exists)
+// Web workers don't have access to window object
+if (typeof window !== 'undefined') {
+  try {
+    window.lotteryML = new LotteryML();
+    console.log('LotteryML module initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize LotteryML:', error);
+    // Fallback to basic object if class fails
+    window.lotteryML = {
+      predictNextNumbers: async () => ({
+        numbers: [7, 19, 23, 31, 42, 56, 11, 15, 44, 58],
+        confidence: 0.5,
+        model: 'fallback',
+        warning: 'ML module initialization failed'
+      }),
+      getStatus: () => ({ status: 'error', message: 'Initialization failed' })
+    };
+  }
+} else {
+  // In worker context, export the class for importScripts
+  self.LotteryML = LotteryML;
 }

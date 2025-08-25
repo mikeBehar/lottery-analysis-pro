@@ -280,5 +280,7 @@ function calculateTemporalFrequency(weightedDraws) {
 }
 
 // Make temporal functions available globally
-window.applyTemporalWeighting = applyTemporalWeighting;
-window.calculateTemporalFrequency = calculateTemporalFrequency;
+if (typeof window !== 'undefined') {
+  window.applyTemporalWeighting = applyTemporalWeighting;
+  window.calculateTemporalFrequency = calculateTemporalFrequency;
+}

@@ -4,6 +4,7 @@
  * Handles comprehensive backtesting in background thread
  */
 
+// Import required utilities
 importScripts('../utils.js');
 
 let shouldStop = false;
@@ -126,7 +127,40 @@ function getPredictionForBacktest(draws, decayRate, method) {
   };
 }
 
+// Performance metrics calculation (moved from app.js)
 function calculatePerformanceMetrics(results) {
-  // Implementation from app.js would be moved here
-  return {};
+  const totalHits = Object.values(results.hits).reduce((sum, count) => sum + count, 0);
+  const hitRate = results.totalTests > 0 ? totalHits / results.totalTests : 0;
+  
+  let totalPredictedNumbers = 0;
+  let correctPredictions = 0;
+  
+  results.simulations.forEach(sim => {
+    totalPredictedNumbers += sim.predicted.length;
+    correctPredictions += sim.matched.length;
+  });
+  
+  const precision = totalPredictedNumbers > 0 ? correctPredictions / totalPredictedNumbers : 0;
+  
+  const ticketCost = 2;
+  const prizeMap = { 3: 10, 4: 100, 5: 1000, 6: 10000 };
+  let totalSpent = results.totalTests * ticketCost;
+  let totalWon = 0;
+  
+  Object.entries(results.hits).forEach(([hitCount, count]) => {
+    if (prizeMap[hitCount]) {
+      totalWon += count * prizeMap[hitCount];
+    }
+  });
+  
+  const roi = totalSpent > 0 ? ((totalWon - totalSpent) / totalSpent) * 100 : 0;
+  
+  return {
+    hitRate: hitRate,
+    precision: precision,
+    totalSpent: totalSpent,
+    totalWon: totalWon,
+    roi: roi,
+    hitDistribution: results.hits
+  };
 }

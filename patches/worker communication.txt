@@ -1,0 +1,8 @@
+Worker Communication.diff patch in your patches folder improves web worker management and error handling in app.js. Here’s a summary of what it does:
+
+Adds robust worker creation with try/catch and error reporting.
+Ensures workers are terminated after result or error.
+Centralizes worker message handling with a handleWorkerMessage function.
+Handles cancellation: if state.isCancelled is set, predictions return a "cancelled" result.
+Ensures fallback predictions are returned if worker creation fails or errors occur.
+Cleans up activeWorkers state and worker resources more reliably.

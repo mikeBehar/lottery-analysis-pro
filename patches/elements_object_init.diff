@@ -1,0 +1,15 @@
+diff --git a/js/app.js b/js/app.js
+--- a/js/app.js
++++ b/js/app.js
+@@ (function() {
++  // ==================== DOM ELEMENTS ==================== //
++  const elements = {
++    methodSelector: document.createElement('select'),
++    temporalDecaySelector: document.createElement('select'),
++    analyzeBtn: document.getElementById('analyze-btn'),
++    uploadInput: document.getElementById('upload-input'),
++    progressIndicator: document.createElement('div'),
++    backtestResults: document.createElement('div'),
++    recommendations: document.getElementById('recommendations'),
++    // Add more as needed for your UI
++  };

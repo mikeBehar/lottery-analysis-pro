@@ -1,0 +1,161 @@
+diff --git a/js/app.js b/js/app.js
+index mno345..pqr678 100644
+--- a/js/app.js
++++ b/js/app.js
+@@ -282,12 +282,17 @@
+     
+     return new Promise((resolve, reject) => {
+       // Create backtesting worker
+-      const backtestWorker = new Worker('js/workers/backtest-worker.js');
++      let backtestWorker;
++      try {
++        backtestWorker = new Worker('js/workers/backtest-worker.js');
++      } catch (error) {
++        reject(new Error('Failed to create backtest worker: ' + error.message));
++        return;
++      }
++      
+       state.activeWorkers.set('backtest', backtestWorker);
+       
+       backtestWorker.onmessage = function(e) {
+-        const { type, data } = e.data;
+-        
+         switch (type) {
+           case 'progress':
+             updateProgress(data.message, data.percentage);
+@@ -295,18 +300,24 @@
+           case 'result':
+             state.activeWorkers.delete('backtest');
+             resolve(data.results);
++            backtestWorker.terminate();
+             break;
+           case 'error':
+             state.activeWorkers.delete('backtest');
+             reject(new Error(data.message));
++            backtestWorker.terminate();
+             break;
+         }
+       };
+       
+       backtestWorker.onerror = function(error) {
+         state.activeWorkers.delete('backtest');
++        backtestWorker.terminate();
+         reject(error);
+       };
++
++      // Handle cancellation from main thread
++      backtestWorker.onmessage = handleWorkerMessage.bind(null, resolve, reject, 'backtest');
+       
+       // Send data to worker
+       backtestWorker.postMessage({
+@@ -316,10 +327,35 @@
+         config: CONFIG.backtestSettings
+       });
+     });
+   }
++
++  function handleWorkerMessage(resolve, reject, workerType, e) {
++    const { type, data } = e.data;
++    const worker = state.activeWorkers.get(workerType);
++    
++    if (!worker) return; // Worker was already terminated
++    
++    switch (type) {
++      case 'progress':
++        updateProgress(data.message, data.percentage);
++        break;
++      case 'result':
++        state.activeWorkers.delete(workerType);
++        resolve(data.results);
++        worker.terminate();
++        break;
++      case 'error':
++        state.activeWorkers.delete(workerType);
++        reject(new Error(data.message));
++        worker.terminate();
++        break;
++    }
++  }
+   
+   async function getMLPrediction(draws = state.draws, decayRate = state.decayRate) {
+-    if (draws.length < 50) {
++    if (state.isCancelled) return getCancelledPrediction();
++    
++    if (draws.length < 50) {
+       return getFrequencyFallback(draws, decayRate);
+     }
+ 
+@@ -327,38 +363,27 @@
+     
+     return new Promise((resolve, reject) => {
+       // Create ML worker
+-      const mlWorker = new Worker('js/workers/ml-worker.js');
++      let mlWorker;
++      try {
++        mlWorker = new Worker('js/workers/ml-worker.js');
++      } catch (error) {
++        resolve(getFrequencyFallback(draws, decayRate));
++        return;
++      }
++      
+       state.activeWorkers.set('ml', mlWorker);
+       
+-      mlWorker.onmessage = function(e) {
+-        const { type, data } = e.data;
+-        
+-        switch (type) {
+-          case 'progress':
+-            updateProgress(data.message);
+-            break;
+-          case 'result':
+-            state.activeWorkers.delete('ml');
+-            resolve(data.prediction);
+-            break;
+-          case 'error':
+-            state.activeWorkers.delete('ml');
+-            resolve(getFrequencyFallback(draws, decayRate)); // Fallback on error
+-            break;
+-        }
+-      };
++      mlWorker.onmessage = handleWorkerMessage.bind(null, 
++        (prediction) => resolve(prediction), 
++        (error) => resolve(getFrequencyFallback(draws, decayRate)),
++        'ml'
++      );
+       
+       mlWorker.onerror = function(error) {
+         state.activeWorkers.delete('ml');
++        mlWorker.terminate();
+         resolve(getFrequencyFallback(draws, decayRate)); // Fallback on error
+       };
+-      
+-      // Send data to worker
+-      mlWorker.postMessage({
+-        draws: draws,
+-        decayRate: decayRate
+-      });
+     });
+   }
+   
+@@ -369,10 +394,19 @@
+     });
+     state.activeWorkers.clear();
+   }
++
++  function getCancelledPrediction() {
++    return {
++      numbers: [],
++      confidence: 0,
++      model: 'cancelled',
++      message: 'Analysis was cancelled'
++    };
++  }
+   
+   // ==================== ORIGINAL FUNCTIONS (KEPT FOR FALLBACK) ==================== //
+   
+   function getFrequencyFallback(draws = state.draws, decayRate = state.decayRate) {
++    if (state.isCancelled) return getCancelledPrediction();
++    
+     // Use the new temporal functions for a better fallback
+     const weightedDraws = applyTemporalWeighting(draws, decayRate);
+     const frequencyMap = calculateTemporalFrequency(weightedDraws);
