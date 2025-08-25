@@ -77,12 +77,32 @@
   }
 
   // ==================== CSV PARSING ==================== //
+  const DEBUG = true;
+
+  function readFileContent(file) {
+    if (DEBUG) console.log('readFileContent: called', file);
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (DEBUG) console.log('readFileContent: onload', e);
+        resolve(e.target.result);
+      };
+      reader.onerror = (e) => {
+        if (DEBUG) console.log('readFileContent: onerror', e);
+        reject(e);
+      };
+      reader.readAsText(file);
+    });
+  }
+
   async function parseCSVWithPapaParse(content) {
+    if (DEBUG) console.log('parseCSVWithPapaParse: called');
     return new Promise((resolve, reject) => {
       Papa.parse(content, {
         header: false,
         skipEmptyLines: true,
         complete: function(results) {
+          if (DEBUG) console.log('parseCSVWithPapaParse: Papa.parse complete', results);
           if (results.errors.length > 0) {
             reject(new Error(`CSV errors: ${results.errors.map(e => e.message).join(', ')}`));
             return;
@@ -107,14 +127,15 @@
                 };
               })
               .filter(draw => !isNaN(draw.powerball));
-            elements.analyzeBtn.disabled = false;
-            console.log(`Successfully parsed ${state.draws.length} draws`);
+          setAnalyzeBtnState(true); // enable and turn green
+          if (DEBUG) console.log(`Successfully parsed ${state.draws.length} draws`);
             resolve(state.draws);
           } catch (error) {
             reject(error);
           }
         },
         error: function(error) {
+          if (DEBUG) console.log('parseCSVWithPapaParse: Papa.parse error', error);
           reject(new Error(`CSV parsing failed: ${error.message}`));
         }
       });
@@ -198,21 +219,29 @@
   }
 
   function initEventListeners() {
+    console.log('initEventListeners:');
+    console.log('  uploadInput:', elements.uploadInput);
+    console.log('  analyzeBtn:', elements.analyzeBtn);
     if (!elements.uploadInput || !elements.analyzeBtn) {
       console.error('Required elements missing');
       return;
     }
 
-    elements.uploadInput.addEventListener('change', handleFileUpload);
-    elements.analyzeBtn.addEventListener('click', runAnalysis);
-    
+    elements.uploadInput.addEventListener('change', (e) => {
+      console.log('uploadInput change event fired');
+      handleFileUpload(e);
+    });
+    elements.analyzeBtn.addEventListener('click', (e) => {
+      console.log('analyzeBtn click event fired');
+      runAnalysis(e);
+    });
+
     elements.temporalDecaySelector.addEventListener('change', (e) => {
       if (!CONFIG.temporalDecayRates[e.target.value]) {
         console.warn('Invalid temporal decay value:', e.target.value);
         e.target.value = 'medium';
         return;
       }
-      
       state.temporalDecay = e.target.value;
       state.decayRate = CONFIG.temporalDecayRates[e.target.value];
       console.log(`Temporal decay set to: ${state.temporalDecay} (rate: ${state.decayRate})`);
@@ -229,6 +258,7 @@
     initEventListeners();
     initStrategies();
     console.log('App initialized successfully');
+    setAnalyzeBtnState(false); // Ensure initial state and text is 'Waiting'
   });
 
   // ==================== CORE FUNCTIONS ==================== //
@@ -242,6 +272,7 @@
     `;
     elements.analyzeBtn.disabled = true;
     state.isAnalyzing = true;
+    showCancelButton();
   }
 
   function hideProgress() {
@@ -255,37 +286,73 @@
 
   async function handleFileUpload(event) {
     try {
-      const file = validateAndGetFile(event);
-      if (!file) return;
-
+      console.log('handleFileUpload: event', event);
+      if (!event || !event.target || !event.target.files) {
+        console.log('handleFileUpload: event missing target/files');
+        return;
+      }
+      const file = event.target.files[0];
+      console.log('handleFileUpload: file from event', file);
+      if (!file) {
+        console.log('handleFileUpload: no file found');
+        return;
+      }
       if (!file.name.endsWith('.csv')) {
+        console.log('handleFileUpload: file is not .csv');
         throw new Error('Please upload a CSV file');
       }
-
       showProgress('Parsing CSV file...');
       const content = await readFileContent(file);
+      if (content) {
+        console.log('handleFileUpload: file content loaded, length', content.length);
+      } else {
+        console.log('handleFileUpload: file content is empty or undefined');
+      }
       await parseCSVWithPapaParse(content);
+      console.log('handleFileUpload: CSV parsed');
       hideProgress();
-      
     } catch (error) {
       hideProgress();
       logError('File upload failed', error);
       resetFileInput();
+      setAnalyzeBtnState(false); // disable and turn red on error
     }
   }
 
+  // Ensure results and cancel button elements are created and referenced
+  if (!elements.mlResults) {
+    elements.mlResults = document.getElementById('ml-results');
+    if (DEBUG) console.log('mlResults element set:', elements.mlResults);
+  }
+  if (!elements.recommendations) {
+    elements.recommendations = document.getElementById('recommendations');
+    if (DEBUG) console.log('recommendations element set:', elements.recommendations);
+  }
+  if (!elements.cancelBtn) {
+    elements.cancelBtn = document.createElement('button');
+    elements.cancelBtn.id = 'cancel-analysis';
+    elements.cancelBtn.textContent = 'Cancel Analysis';
+    elements.cancelBtn.className = 'cancel-btn';
+    elements.cancelBtn.style.display = 'none';
+    var controlPanel = document.querySelector('.control-panel');
+    if (controlPanel) controlPanel.appendChild(elements.cancelBtn);
+    if (DEBUG) console.log('cancelBtn created and added to DOM:', elements.cancelBtn);
+  }
+
+  // Add debug logging to analysis flow
   async function runAnalysis() {
+    if (DEBUG) console.log('runAnalysis called');
     if (state.isAnalyzing) return;
-    
     try {
       if (state.draws.length === 0) {
         throw new Error('Please upload CSV file first');
       }
-
+      if (DEBUG) console.log('runAnalysis: executing complete analysis');
       const analysisResults = await executeCompleteAnalysis();
+      if (DEBUG) console.log('runAnalysis: analysisResults', analysisResults);
       displayAnalysisResults(analysisResults);
+      if (DEBUG) console.log('runAnalysis: displayAnalysisResults called');
       hideProgress();
-
     } catch (error) {
       hideProgress();
       logError('Analysis failed', error);
@@ -295,12 +362,14 @@
   async function executeCompleteAnalysis() {
     const analysisStartTime = Date.now();
     showProgress('Analyzing data...');
+                console.log(`Successfully parsed ${state.draws.length} draws`);
     console.log('Running', state.currentMethod, 'analysis on', state.draws.length, 'draws...');
     
     const allNumbers = Array.from({length: 69}, (_, i) => i + 1);
     const energyData = calculateEnergy(allNumbers, CONFIG.energyWeights);
 
     const mlPrediction = await getMLPrediction(state.draws, state.decayRate);
+              console.log('parseCSVWithPapaParse: Papa.parse error', error);
     const backtestResults = await runComprehensiveBacktesting(state.decayRate);
     state.backtestResults = backtestResults;
 
@@ -530,6 +599,7 @@
   }
 
   function displayMLResults(mlPrediction, container) {
+    if (DEBUG) console.log('displayMLResults called', mlPrediction, container);
     const numbersWithSpaces = mlPrediction.numbers.map(num => 
       num.toString().padStart(2, '0')
     ).join(' ');
@@ -545,6 +615,7 @@
   }
 
   function displayRecommendations(recommendations) {
+    if (DEBUG) console.log('displayRecommendations called', recommendations);
     if (!elements.recommendations) return;
     
     elements.recommendations.innerHTML = `
@@ -678,6 +749,50 @@
       console.log(`Terminated ${key} worker`);
     });
     state.activeWorkers.clear();
+  }
+
+  // --- Analyze Button Visual State ---
+  // Set initial button color to red (disabled)
+  if (elements.analyzeBtn) {
+    elements.analyzeBtn.style.backgroundColor = '#c0392b'; // red
+    elements.analyzeBtn.style.color = '#fff';
+  }
+
+  function setAnalyzeBtnState(enabled) {
+    if (!elements.analyzeBtn) return;
+    elements.analyzeBtn.disabled = !enabled;
+    if (enabled) {
+      elements.analyzeBtn.style.backgroundColor = '#27ae60'; // green
+      elements.analyzeBtn.style.color = '#fff';
+      elements.analyzeBtn.textContent = 'Analyze Now';
+    } else {
+      elements.analyzeBtn.style.backgroundColor = '#c0392b'; // red
+      elements.analyzeBtn.style.color = '#fff';
+      elements.analyzeBtn.textContent = 'Waiting';
+    }
+  }
+
+  // --- Cancel Button Display ---
+  function showCancelButton() {
+    if (elements.cancelBtn) {
+      elements.cancelBtn.style.display = 'inline-block';
+    }
+  }
+  function hideCancelButton() {
+    if (elements.cancelBtn) {
+      elements.cancelBtn.style.display = 'none';
+    }
+  }
+
+  // --- Always Display Current Predictions ---
+  // In displayAnalysisResults or after analysis, ensure predictions are shown:
+  function displayAnalysisResults(analysisResults) {
+    if (DEBUG) console.log('displayAnalysisResults called', analysisResults);
+    // ...existing code...
+    if (analysisResults && analysisResults.mlPrediction && elements.mlResults) {
+      displayMLResults(analysisResults.mlPrediction, elements.mlResults);
+    }
+    // ...existing code...
   }
 
 })();

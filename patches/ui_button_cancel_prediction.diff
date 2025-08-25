@@ -1,0 +1,54 @@
+*** Begin Patch
+*** Update File: js/app.js
+@@
++// --- Analyze Button Visual State ---
++// Set initial button color to red (disabled)
++if (elements.analyzeBtn) {
++  elements.analyzeBtn.style.backgroundColor = '#c0392b'; // red
++  elements.analyzeBtn.style.color = '#fff';
++}
++
++function setAnalyzeBtnState(enabled) {
++  if (!elements.analyzeBtn) return;
++  elements.analyzeBtn.disabled = !enabled;
++  if (enabled) {
++    elements.analyzeBtn.style.backgroundColor = '#27ae60'; // green
++    elements.analyzeBtn.style.color = '#fff';
++  } else {
++    elements.analyzeBtn.style.backgroundColor = '#c0392b'; // red
++    elements.analyzeBtn.style.color = '#fff';
++  }
++}
+@@
+-          elements.analyzeBtn.disabled = false;
++          setAnalyzeBtnState(true); // enable and turn green
+@@
+-      logError('File upload failed', error);
+-      resetFileInput();
++      logError('File upload failed', error);
++      setAnalyzeBtnState(false); // disable and turn red on error
++      resetFileInput();
+@@
++// --- Cancel Button Display ---
++function showCancelButton() {
++  if (elements.cancelBtn) {
++    elements.cancelBtn.style.display = 'inline-block';
++  }
++}
++function hideCancelButton() {
++  if (elements.cancelBtn) {
++    elements.cancelBtn.style.display = 'none';
++  }
++}
+@@ function showProgress(message) {
++  showCancelButton();
+@@ function hideProgress() {
++  hideCancelButton();
+@@ function displayAnalysisResults(analysisResults) {
+   if (DEBUG) console.log('displayAnalysisResults called', analysisResults);
+   // ...existing code...
++  if (analysisResults && analysisResults.mlPrediction && elements.mlResults) {
++    displayMLResults(analysisResults.mlPrediction, elements.mlResults);
++  }
+   // ...existing code...
+*** End Patch
