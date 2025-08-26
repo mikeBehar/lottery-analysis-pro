@@ -378,8 +378,8 @@
     const allNumbers = Array.from({length: 69}, (_, i) => i + 1);
     const energyData = calculateEnergy(allNumbers, CONFIG.energyWeights);
 
-    const mlPrediction = await getMLPrediction(state.draws, state.decayRate);
-              console.log('parseCSVWithPapaParse: Papa.parse error', error);
+  const mlPrediction = await getMLPrediction(state.draws, state.decayRate);
+  // Removed stray reference to undefined 'error' variable
     const backtestResults = await runComprehensiveBacktesting(state.decayRate);
     state.backtestResults = backtestResults;
 
