@@ -54,10 +54,13 @@ function makePrediction(draws, decayRate) {
   lotteryML.predictNextNumbers(draws, decayRate).then(prediction => {
     if (shouldStop) {
       self.postMessage({ type: 'error', data: { message: 'Prediction cancelled by user.' } });
+      console.log('[ML Worker] Prediction cancelled by user.');
     } else {
       self.postMessage({ type: 'result', data: { prediction } });
+      console.log('[ML Worker] Prediction result posted:', prediction);
     }
   }).catch(error => {
     self.postMessage({ type: 'error', data: { message: `ML prediction failed: ${error.message}` } });
+    console.error('[ML Worker] Prediction error:', error);
   });
 }

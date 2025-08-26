@@ -539,22 +539,26 @@
       state.activeWorkers.set('ml', mlWorker);
       mlWorker.onmessage = function(e) {
         const { type, data } = e.data;
+        console.log('[App] mlWorker.onmessage:', type, data);
         switch (type) {
           case 'progress':
             updateProgress(data.message);
             break;
           case 'result':
             state.activeWorkers.delete('ml');
+            console.log('[App] Received ML prediction result:', data.prediction);
             resolve(data.prediction);
             break;
           case 'error':
             state.activeWorkers.delete('ml');
+            console.warn('[App] ML worker error:', data.message);
             resolve(getFrequencyFallback(draws, decayRate));
             break;
         }
       };
       mlWorker.onerror = function(error) {
         state.activeWorkers.delete('ml');
+        console.error('[App] ML worker onerror:', error);
         resolve(getFrequencyFallback(draws, decayRate));
       };
       mlWorker.postMessage({
