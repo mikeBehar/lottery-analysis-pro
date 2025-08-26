@@ -622,7 +622,9 @@
   }
 
   function displayMLResults(mlPrediction, container) {
-    if (DEBUG) console.log('displayMLResults called', mlPrediction, container);
+  if (DEBUG) console.log('displayMLResults called', mlPrediction, container);
+  console.log('[Debug] displayMLResults: mlPrediction =', mlPrediction);
+  console.log('[Debug] displayMLResults: container =', container);
     const numbersWithSpaces = mlPrediction.numbers.map(num => 
       num.toString().padStart(2, '0')
     ).join(' ');
@@ -638,10 +640,11 @@
   }
 
   function displayRecommendations(recommendations) {
-    if (DEBUG) console.log('displayRecommendations called', recommendations);
-    if (!elements.recommendations) return;
-    
-    elements.recommendations.innerHTML = `
+  if (DEBUG) console.log('displayRecommendations called', recommendations);
+  console.log('[Debug] displayRecommendations: recommendations =', recommendations);
+  console.log('[Debug] displayRecommendations: elements.recommendations =', elements.recommendations);
+  if (!elements.recommendations) return;
+  elements.recommendations.innerHTML = `
       <div class="recommendation-section">
         <h3>🎯 High Confidence Numbers</h3>
         <div class="number-grid">
