@@ -811,11 +811,13 @@
   // In displayAnalysisResults or after analysis, ensure predictions are shown:
   function displayAnalysisResults(analysisResults) {
     if (DEBUG) console.log('displayAnalysisResults called', analysisResults);
-    // ...existing code...
     if (analysisResults && analysisResults.mlPrediction && elements.mlResults) {
       displayMLResults(analysisResults.mlPrediction, elements.mlResults);
+      if (analysisResults.energyData && elements.recommendations) {
+        const recommendations = generateRecommendations(analysisResults.energyData, analysisResults.mlPrediction);
+        displayRecommendations(recommendations);
+      }
     }
-    // ...existing code...
   }
 
 })();
