@@ -816,13 +816,34 @@
   function displayAnalysisResults(analysisResults) {
   if (DEBUG) console.log('displayAnalysisResults called', analysisResults);
   console.log('[Debug] displayAnalysisResults: called with', analysisResults);
-    if (analysisResults && analysisResults.mlPrediction && elements.mlResults) {
-      displayMLResults(analysisResults.mlPrediction, elements.mlResults);
-      if (analysisResults.energyData && elements.recommendations) {
-        const recommendations = generateRecommendations(analysisResults.energyData, analysisResults.mlPrediction);
-        displayRecommendations(recommendations);
+  if (!analysisResults) {
+    console.warn('[Debug] displayAnalysisResults: analysisResults is null or undefined');
+    return;
+  }
+  const keys = Object.keys(analysisResults);
+  console.log('[Debug] displayAnalysisResults: analysisResults keys:', keys);
+  if (!analysisResults.mlPrediction) {
+    console.warn('[Debug] displayAnalysisResults: analysisResults.mlPrediction is missing or falsy');
+  }
+  if (!elements.mlResults) {
+    console.warn('[Debug] displayAnalysisResults: elements.mlResults is missing or falsy');
+  }
+  if (analysisResults && analysisResults.mlPrediction && elements.mlResults) {
+    displayMLResults(analysisResults.mlPrediction, elements.mlResults);
+    if (analysisResults.energyData && elements.recommendations) {
+      const recommendations = generateRecommendations(analysisResults.energyData, analysisResults.mlPrediction);
+      displayRecommendations(recommendations);
+    } else {
+      if (!analysisResults.energyData) {
+        console.warn('[Debug] displayAnalysisResults: analysisResults.energyData is missing or falsy');
+      }
+      if (!elements.recommendations) {
+        console.warn('[Debug] displayAnalysisResults: elements.recommendations is missing or falsy');
       }
     }
+  } else {
+    console.warn('[Debug] displayAnalysisResults: condition for displaying ML results not met');
+  }
   }
 
 })();
