@@ -354,8 +354,9 @@
       }
       if (DEBUG) console.log('runAnalysis: executing complete analysis');
       const analysisResults = await executeCompleteAnalysis();
-      if (DEBUG) console.log('runAnalysis: analysisResults', analysisResults);
-      displayAnalysisResults(analysisResults);
+  if (DEBUG) console.log('runAnalysis: analysisResults', analysisResults);
+  console.log('[Debug] runAnalysis: about to call displayAnalysisResults with:', analysisResults);
+  displayAnalysisResults(analysisResults);
       if (DEBUG) console.log('runAnalysis: displayAnalysisResults called');
       hideProgress();
     } catch (error) {
@@ -813,7 +814,8 @@
   // --- Always Display Current Predictions ---
   // In displayAnalysisResults or after analysis, ensure predictions are shown:
   function displayAnalysisResults(analysisResults) {
-    if (DEBUG) console.log('displayAnalysisResults called', analysisResults);
+  if (DEBUG) console.log('displayAnalysisResults called', analysisResults);
+  console.log('[Debug] displayAnalysisResults: called with', analysisResults);
     if (analysisResults && analysisResults.mlPrediction && elements.mlResults) {
       displayMLResults(analysisResults.mlPrediction, elements.mlResults);
       if (analysisResults.energyData && elements.recommendations) {
