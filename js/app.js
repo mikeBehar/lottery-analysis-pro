@@ -408,6 +408,7 @@
       const backtestWorker = new Worker('js/workers/backtest-worker.js');
       state.activeWorkers = state.activeWorkers || new Map();
       state.activeWorkers.set('backtest', backtestWorker);
+      let responded = false;
       backtestWorker.onmessage = function(e) {
         const { type, data } = e.data;
         switch (type) {
@@ -415,18 +416,28 @@
             updateProgress(data.message, data.percentage);
             break;
           case 'result':
+            responded = true;
             state.activeWorkers.delete('backtest');
             resolve(data.results);
             break;
           case 'error':
+            responded = true;
             state.activeWorkers.delete('backtest');
             reject(new Error(data.message));
             break;
         }
       };
       backtestWorker.onerror = function(error) {
+        responded = true;
         state.activeWorkers.delete('backtest');
         reject(error);
+      };
+      // Ensure a message is always posted back, even if worker is terminated
+      backtestWorker.onclose = function() {
+        if (!responded) {
+          state.activeWorkers.delete('backtest');
+          reject(new Error('Worker terminated before response.'));
+        }
       };
       backtestWorker.postMessage({
         draws: state.draws,
