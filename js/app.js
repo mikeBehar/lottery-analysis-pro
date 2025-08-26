@@ -387,7 +387,7 @@
       state.backtestResults.analysisTime = analysisTime.seconds;
     }
 
-    return { energyData, mlPrediction, backtestResults, analysisTime };
+  return { energyData, mlPrediction, backtestResults, analysisTime };
   }
 
   function calculateAnalysisTime(startTime) {
