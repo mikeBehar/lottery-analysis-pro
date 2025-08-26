@@ -354,12 +354,13 @@
       }
       if (DEBUG) console.log('runAnalysis: executing complete analysis');
       const analysisResults = await executeCompleteAnalysis();
-  if (DEBUG) console.log('runAnalysis: analysisResults', analysisResults);
-  console.log('[Debug] runAnalysis: about to call displayAnalysisResults with:', analysisResults);
-  displayAnalysisResults(analysisResults);
+      if (DEBUG) console.log('runAnalysis: analysisResults', analysisResults);
+      console.log('[Debug] runAnalysis: about to call displayAnalysisResults with:', analysisResults);
+      displayAnalysisResults(analysisResults);
       if (DEBUG) console.log('runAnalysis: displayAnalysisResults called');
       hideProgress();
     } catch (error) {
+      console.error('[Debug] runAnalysis: caught error:', error);
       hideProgress();
       logError('Analysis failed', error);
       // Show placeholder if cancelled or failed
