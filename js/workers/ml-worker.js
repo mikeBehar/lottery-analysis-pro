@@ -51,8 +51,13 @@ self.addEventListener('message', function(e) {
 
 function makePrediction(draws, decayRate) {
   self.postMessage({ type: 'progress', data: { message: 'Making prediction' } });
-  
   lotteryML.predictNextNumbers(draws, decayRate).then(prediction => {
-    self.postMessage({ type: 'result', data: { prediction } });
+    if (shouldStop) {
+      self.postMessage({ type: 'error', data: { message: 'Prediction cancelled by user.' } });
+    } else {
+      self.postMessage({ type: 'result', data: { prediction } });
+    }
+  }).catch(error => {
+    self.postMessage({ type: 'error', data: { message: `ML prediction failed: ${error.message}` } });
   });
 }

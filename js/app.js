@@ -343,6 +343,11 @@
   async function runAnalysis() {
     if (DEBUG) console.log('runAnalysis called');
     if (state.isAnalyzing) return;
+    // Clear previous results and reset state
+    if (elements.mlResults) elements.mlResults.innerHTML = '';
+    if (elements.recommendations) elements.recommendations.innerHTML = '';
+    if (elements.backtestResults) elements.backtestResults.innerHTML = '';
+    state.isCancelled = false;
     try {
       if (state.draws.length === 0) {
         throw new Error('Please upload CSV file first');
@@ -356,6 +361,9 @@
     } catch (error) {
       hideProgress();
       logError('Analysis failed', error);
+      // Show placeholder if cancelled or failed
+      if (elements.mlResults) elements.mlResults.innerHTML = '<div class="ml-prediction warning">No predictions available.</div>';
+      if (elements.recommendations) elements.recommendations.innerHTML = '<div class="recommendation-section warning">No recommendations available.</div>';
     }
   }
 
