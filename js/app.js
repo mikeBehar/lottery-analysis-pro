@@ -9,6 +9,17 @@
       elements.cancelBtn.style.display = 'none';
     }
   }
+  // --- Cancel Button Display ---
+  function showCancelButton() {
+    if (elements.cancelBtn) {
+      elements.cancelBtn.style.display = 'inline-block';
+    }
+  }
+  function hideCancelButton() {
+    if (elements.cancelBtn) {
+      elements.cancelBtn.style.display = 'none';
+    }
+  }
 // --- Analyze Button Visual State ---
 function setAnalyzeBtnState(enabled) {
   if (!elements.analyzeBtn) return;
@@ -870,7 +881,7 @@ function generateRecommendations(energyData, mlPrediction) {
   }
 
 
-
+s c
 
   // --- Analyze Button Visual State ---
   // Set initial button color to red (disabled)
