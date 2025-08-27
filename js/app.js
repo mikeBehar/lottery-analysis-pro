@@ -164,12 +164,25 @@
             if (DEBUG) console.log(`Successfully parsed ${state.draws.length} draws`);
             resolve(state.draws);
           } catch (error) {
-            reject(error);
+            // Always reject with an Error object
+            if (error instanceof Error) {
+              reject(error);
+            } else {
+              reject(new Error(error ? error.toString() : 'Unknown error during CSV parsing'));
+            }
           }
         },
         error: function(error) {
           if (DEBUG) console.log('parseCSVWithPapaParse: Papa.parse error', error);
-          reject(new Error(`CSV parsing failed: ${error.message}`));
+          let msg = 'Unknown error';
+          if (error && typeof error.message === 'string') {
+            msg = error.message;
+          } else if (typeof error === 'string') {
+            msg = error;
+          } else if (error) {
+            msg = JSON.stringify(error);
+          }
+          reject(new Error(`CSV parsing failed: ${msg}`));
         }
       });
     });
