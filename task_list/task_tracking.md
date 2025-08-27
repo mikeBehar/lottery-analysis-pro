@@ -1,4 +1,51 @@
+
+# Draw Data Format
+
+**For the correct CSV format, see this section.**
+
 # Lottery Analysis Pro - Task Tracking
+
+## 🎲 Draw Data Format & Rules
+
+**Expected CSV columns:**
+
+	mm, dd, yyyy, n1, n2, n3, n4, n5, powerball, multiplier
+
+- **mm:** Month (01-12)
+- **dd:** Day (01-31)
+- **yyyy:** Year (e.g., 2025)
+- **n1, n2, n3, n4, n5:** White balls (integers 1-69, no repeats in a single draw)
+- **powerball:** Red ball (Powerball, integer 1-26, drawn from a separate pool)
+- **multiplier:** Powerball multiplier (2, 3, 4, 5, or 10) — present in the file but ignored by the analysis and not user-selectable.
+
+**Rules:**
+- White balls (n1-n5) are unique within a draw and range from 1 to 69 inclusive.
+- The red ball (powerball) ranges from 1 to 26 inclusive and is drawn independently from the white balls.
+- The multiplier column is not used in analysis or prediction.
+- The parser expects at least the first 10 columns; extra columns (like multiplier) are ignored.
+
+---
+## 🎲 Draw Data Format & Rules
+
+**Expected CSV columns:**
+
+	mm, dd, yyyy, n1, n2, n3, n4, n5, n6, powerball, multiplier
+
+- **mm:** Month (01-12)
+- **dd:** Day (01-31)
+- **yyyy:** Year (e.g., 2025)
+- **n1, n2, n3, n4, n5:** White balls (integers 1-69, no repeats in a single draw)
+- **n6:** Red ball (Powerball, integer 1-26, drawn from a separate pool)
+- **powerball:** (Alias for n6, for clarity)
+- **multiplier:** Powerball multiplier (2, 3, 4, 5, or 10) — present in the file but ignored by the analysis and not user-selectable.
+
+**Rules:**
+- White balls (n1-n5) are unique within a draw and range from 1 to 69 inclusive.
+- The red ball (powerball/n6) ranges from 1 to 26 inclusive and is drawn independently from the white balls.
+- The multiplier column is not used in analysis or prediction.
+- The parser expects at least the first 10 columns; extra columns (like multiplier) are ignored.
+
+---
 
 ## 📋 Task Priority Legend
 
@@ -109,14 +156,16 @@
 
 ---
 
+
 ## 🆕 NEW/CLARIFIED TASKS
 
 ### 13. UI/UX Polish & Feedback
 
 - **Description:** Improve button states, progress indicators, and error messages.
 - **Clarification:** Button text, cancel button, and prediction display need refinement.
+- **Status:** Major UI/UX bug (ML predictions/recommendations not displaying) resolved on 2025-08-26. Root cause: stray reference to undefined variable in `executeCompleteAnalysis` blocked UI update. Fix: removed stray reference, confirmed UI now updates and displays ML results and recommendations as expected.
 - **Date Last Modified:** 2025-08-26
-- **Percent Completed:** 60%
+- **Percent Completed:** 90%
 
 ### 14. Automated Testing & Integration Checks
 
@@ -126,3 +175,13 @@
 - **Percent Completed:** 10%
 
 ---
+
+## ✅ RECENTLY COMPLETED
+
+### UI/ML Prediction Display Bug
+
+- **Description:** ML predictions and recommendations were not displayed after training, despite worker returning results.
+- **Root Cause:** ReferenceError in `executeCompleteAnalysis` (stray `error` variable) was silently caught, blocking UI update.
+- **Resolution:** Removed stray reference, confirmed UI now works and displays results.
+- **Date Fixed:** 2025-08-26
+

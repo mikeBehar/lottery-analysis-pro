@@ -1,3 +1,23 @@
+/* Powerball Recommendation Section */
+.powerball-recommendation-section, .powerball-section {
+  margin-top: 1.5rem;
+  background: var(--card-bg);
+  border-radius: 10px;
+  padding: 1rem 1.5rem;
+  box-shadow: 0 2px 8px rgba(110, 72, 255, 0.08);
+  text-align: center;
+}
+.powerball-number {
+  color: #fff;
+  background: var(--accent);
+  border-radius: 50%;
+  padding: 0.4em 0.7em;
+  font-size: 1.3em;
+  font-weight: bold;
+  margin: 0 0.2em;
+  display: inline-block;
+  box-shadow: 0 1px 4px rgba(255,77,141,0.15);
+}
 /* Progress Indicator */
 .progress-indicator {
   position: static;

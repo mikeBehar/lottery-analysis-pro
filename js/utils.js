@@ -108,12 +108,11 @@ function findNumberPairs(draws, minFrequency = 5) {
   const pairCounts = {};
   
   draws.forEach(draw => {
-    const numbers = draw.numbers.sort((a, b) => a - b);
-    
+    const whiteBalls = (draw.whiteBalls || []).slice().sort((a, b) => a - b);
     // Create all possible pairs in the draw
-    for (let i = 0; i < numbers.length; i++) {
-      for (let j = i + 1; j < numbers.length; j++) {
-        const pairKey = `${numbers[i]}-${numbers[j]}`;
+    for (let i = 0; i < whiteBalls.length; i++) {
+      for (let j = i + 1; j < whiteBalls.length; j++) {
+        const pairKey = `${whiteBalls[i]}-${whiteBalls[j]}`;
         pairCounts[pairKey] = (pairCounts[pairKey] || 0) + 1;
       }
     }
@@ -157,7 +156,7 @@ function calculateGapAnalysis(draws) {
   
   // First pass: calculate frequencies and gaps
   draws.forEach((draw, drawIndex) => {
-    draw.numbers.forEach(num => {
+    (draw.whiteBalls || []).forEach(num => {
       if (num >= 1 && num <= 69) {
         if (gapData[num].lastSeen !== null) {
           const gap = drawIndex - gapData[num].lastSeen;
@@ -250,11 +249,10 @@ function applyTemporalWeighting(draws, decayRate = 0.1) {
     const ageDays = (mostRecentDate - draw.date) / (1000 * 60 * 60 * 24);
     const normalizedAge = ageDays / maxAgeDays;
     const weight = Math.exp(-decayRate * normalizedAge * 10); // Exponential decay
-    
     return {
       ...draw,
       temporalWeight: weight,
-      weightedNumbers: draw.numbers.map(num => ({
+      weightedNumbers: (draw.whiteBalls || []).map(num => ({
         number: num,
         weight: weight
       }))

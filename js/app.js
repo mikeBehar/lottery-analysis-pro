@@ -1,7 +1,10 @@
-/**
- * LOTTERY ANALYSIS PRO - CORE APPLICATION
- * Version: 2.4.2 | Last Updated: 2025-08-21 02:45 PM EST
- */
+
+
+
+// LOTTERY ANALYSIS PRO - CORE APPLICATION
+// Version: 2.4.2 | Last Updated: 2025-08-21 02:45 PM EST
+//
+// NOTE: For the correct CSV draw format, see the top of task_list/task_tracking.md
 
 (function() {
   // ==================== DOM ELEMENTS ==================== //
@@ -111,10 +114,17 @@
             state.draws = results.data
               .filter(row => row.length >= 10)
               .map(row => {
-                const [mm, dd, yyyy, n1, n2, n3, n4, n5, n6, powerball] = row;
-                const numbers = [n1, n2, n3, n4, n5, n6].map(Number);
-                if (numbers.some(isNaN)) {
-                  throw new Error('Invalid number format in CSV');
+                // mm, dd, yyyy, n1, n2, n3, n4, n5, powerball, multiplier
+                const [mm, dd, yyyy, n1, n2, n3, n4, n5, powerball, multiplier] = row;
+                const whiteBalls = [n1, n2, n3, n4, n5].map(Number);
+                const redBall = Number(powerball);
+                // Validate white balls
+                if (whiteBalls.some(isNaN) || new Set(whiteBalls).size !== 5 || whiteBalls.some(n => n < 1 || n > 69)) {
+                  throw new Error('Invalid white ball numbers in CSV');
+                }
+                // Validate red ball
+                if (isNaN(redBall) || redBall < 1 || redBall > 26) {
+                  throw new Error('Invalid Powerball (red ball) number in CSV');
                 }
                 const date = new Date(`${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`);
                 if (isNaN(date.getTime())) {
@@ -122,13 +132,14 @@
                 }
                 return {
                   date: date,
-                  numbers: numbers,
-                  powerball: Number(powerball)
+                  whiteBalls: whiteBalls,
+                  powerball: redBall
+                  // multiplier: Number(multiplier) // present but ignored
                 };
               })
               .filter(draw => !isNaN(draw.powerball));
-          setAnalyzeBtnState(true); // enable and turn green
-          if (DEBUG) console.log(`Successfully parsed ${state.draws.length} draws`);
+            setAnalyzeBtnState(true); // enable and turn green
+            if (DEBUG) console.log(`Successfully parsed ${state.draws.length} draws`);
             resolve(state.draws);
           } catch (error) {
             reject(error);
@@ -141,9 +152,24 @@
       });
     });
   }
-
-  // ==================== INITIALIZATION FUNCTIONS ==================== //
+// ==================== INITIALIZATION FUNCTIONS ==================== //
   function initUIElements() {
+  // ==================== INITIALIZATION FUNCTIONS ==================== //
+    // Create and add Powerball results container if not present
+    if (!elements.powerballResults) {
+      elements.powerballResults = document.getElementById('powerball-results');
+      if (!elements.powerballResults) {
+        elements.powerballResults = document.createElement('div');
+        elements.powerballResults.id = 'powerball-results';
+        elements.powerballResults.className = 'powerball-panel';
+        // Insert after recommendations if present, else at end of body
+        if (elements.recommendations && elements.recommendations.parentNode) {
+          elements.recommendations.parentNode.insertBefore(elements.powerballResults, elements.recommendations.nextSibling);
+        } else {
+          document.body.appendChild(elements.powerballResults);
+        }
+      }
+    }
     elements.methodSelector.id = 'method-selector';
     CONFIG.analysisMethods.forEach(method => {
       const option = document.createElement('option');
@@ -303,42 +329,12 @@
       }
       showProgress('Parsing CSV file...');
       const content = await readFileContent(file);
-      if (content) {
-        console.log('handleFileUpload: file content loaded, length', content.length);
-      } else {
-        console.log('handleFileUpload: file content is empty or undefined');
-      }
+      // CSV parsing and state.draws assignment is handled in parseCSVWithPapaParse
       await parseCSVWithPapaParse(content);
-      console.log('handleFileUpload: CSV parsed');
-      hideProgress();
     } catch (error) {
-      hideProgress();
-      logError('File upload failed', error);
-      resetFileInput();
-      setAnalyzeBtnState(false); // disable and turn red on error
+      console.error('handleFileUpload error:', error);
+      showError('File Upload Error', error);
     }
-  }
-
-  // Ensure results and cancel button elements are created and referenced
-  if (!elements.mlResults) {
-    elements.mlResults = document.getElementById('ml-results');
-    if (DEBUG) console.log('mlResults element set:', elements.mlResults);
-  }
-  if (!elements.recommendations) {
-    elements.recommendations = document.getElementById('recommendations');
-    if (DEBUG) console.log('recommendations element set:', elements.recommendations);
-  }
-  if (!elements.cancelBtn) {
-    elements.cancelBtn = document.createElement('button');
-    elements.cancelBtn.id = 'cancel-analysis';
-    elements.cancelBtn.textContent = 'Cancel Analysis';
-    elements.cancelBtn.className = 'cancel-btn';
-    elements.cancelBtn.style.display = 'none';
-    var controlPanel = document.querySelector('.control-panel');
-    if (controlPanel) controlPanel.appendChild(elements.cancelBtn);
-    if (DEBUG) console.log('cancelBtn created and added to DOM:', elements.cancelBtn);
-  }
-
   // Add debug logging to analysis flow
   async function runAnalysis() {
     if (DEBUG) console.log('runAnalysis called');
@@ -359,7 +355,8 @@
       displayAnalysisResults(analysisResults);
       if (DEBUG) console.log('runAnalysis: displayAnalysisResults called');
       hideProgress();
-    } catch (error) {
+    }
+    catch (error) {
       console.error('[Debug] runAnalysis: caught error:', error);
       hideProgress();
       logError('Analysis failed', error);
@@ -535,6 +532,7 @@
       return getFrequencyFallback(draws, decayRate);
     }
     updateProgress('Running ML prediction...');
+    // Predict white balls and powerball independently
     return new Promise((resolve, reject) => {
       const mlWorker = new Worker('js/workers/ml-worker.js');
       state.activeWorkers = state.activeWorkers || new Map();
@@ -548,7 +546,7 @@
             break;
           case 'result':
             state.activeWorkers.delete('ml');
-            console.log('[App] Received ML prediction result:', data.prediction);
+            // Expect data.prediction = { whiteBalls: [...], powerball: n, confidence, model }
             resolve(data.prediction);
             break;
           case 'error':
@@ -573,17 +571,35 @@
   function getFrequencyFallback(draws = state.draws, decayRate = state.decayRate) {
     // Use the new temporal functions for a better fallback
     const weightedDraws = applyTemporalWeighting(draws, decayRate);
-    const frequencyMap = calculateTemporalFrequency(weightedDraws);
-    
-    const predictedNumbers = frequencyMap
+    // Predict white balls (1-69, no repeats)
+    const whiteFreq = Array(70).fill(0);
+    weightedDraws.forEach(draw => {
+      if (draw.whiteBalls && Array.isArray(draw.whiteBalls)) {
+        draw.whiteBalls.forEach(n => { if (n >= 1 && n <= 69) whiteFreq[n] += 1; });
+      }
+    });
+    const predictedWhiteBalls = whiteFreq
       .map((count, number) => ({ number, count }))
       .filter(item => item.number >= 1 && item.number <= 69)
       .sort((a, b) => b.count - a.count)
-      .slice(0, 10)
+      .slice(0, 5)
       .map(item => item.number);
 
+    // Predict powerball (1-26)
+    const redFreq = Array(27).fill(0);
+    weightedDraws.forEach(draw => {
+      if (draw.powerball && draw.powerball >= 1 && draw.powerball <= 26) {
+        redFreq[draw.powerball] += 1;
+      }
+    });
+    const predictedPowerball = redFreq
+      .map((count, number) => ({ number, count }))
+      .filter(item => item.number >= 1 && item.number <= 26)
+      .sort((a, b) => b.count - a.count)[0]?.number || 1;
+
     return {
-      numbers: predictedNumbers,
+      whiteBalls: predictedWhiteBalls,
+      powerball: predictedPowerball,
       confidence: 0.65,
       model: 'fallback_temporal_frequency',
       warning: 'Using temporal frequency-based fallback'
@@ -606,18 +622,19 @@
     }
   }
 
-  function generateRecommendations(energyData, mlPrediction) {
-    const topEnergy = [...energyData].sort((a, b) => b.energy - a.energy).slice(0, 6);
-    const mlNumbers = mlPrediction.numbers.slice(0, 6);
-    
-    return {
-      highConfidence: findOverlap(topEnergy, mlNumbers),
-      energyBased: topEnergy.map(n => n.number),
-      mlBased: mlNumbers,
-      summary: `Based on ${state.draws.length} historical draws`
-    };
-  }
-
+ 
+function generateRecommendations(energyData, mlPrediction) {
+  // Use white balls only for recommendations
+  const topEnergy = [...energyData].sort((a, b) => b.energy - a.energy).slice(0, 5);
+  const mlNumbers = (mlPrediction.whiteBalls || []).slice(0, 5);
+  return {
+    highConfidence: findOverlap(topEnergy, mlNumbers),
+    energyBased: topEnergy.map(n => n.number),
+    mlBased: mlNumbers,
+    powerball: mlPrediction.powerball,
+    summary: `Based on ${state.draws.length} historical draws`
+  };
+}
   function findOverlap(energyArray, mlArray) {
     const energyNumbers = energyArray.map(item => item.number);
     return mlArray.filter(num => energyNumbers.includes(num));
@@ -627,18 +644,31 @@
   if (DEBUG) console.log('displayMLResults called', mlPrediction, container);
   console.log('[Debug] displayMLResults: mlPrediction =', mlPrediction);
   console.log('[Debug] displayMLResults: container =', container);
-    const numbersWithSpaces = mlPrediction.numbers.map(num => 
-      num.toString().padStart(2, '0')
-    ).join(' ');
-    
+    // Show white balls and powerball separately
+    const whiteBalls = (mlPrediction.whiteBalls || []).map(num => num.toString().padStart(2, '0')).join(' ');
+    const powerball = mlPrediction.powerball ? mlPrediction.powerball.toString().padStart(2, '0') : '';
     container.innerHTML = `
       <div class="ml-prediction">
         <div class="confidence">Confidence: ${(mlPrediction.confidence * 100).toFixed(1)}%</div>
-        <div class="ml-numbers">${numbersWithSpaces}</div>
+        <div class="ml-numbers"><strong>White Balls:</strong> ${whiteBalls}</div>
+        <div class="ml-numbers"><strong>Powerball:</strong> <span class="powerball-number">${powerball}</span></div>
         <div class="model-info">Model: ${mlPrediction.model}</div>
         ${mlPrediction.warning ? `<div class="warning">${mlPrediction.warning}</div>` : ''}
       </div>
     `;
+    // Also show in dedicated powerball section if present
+    if (elements.powerballResults) {
+      elements.powerballResults.innerHTML = `
+        <div class="powerball-section">
+          <h3>🔴 Powerball Prediction</h3>
+          <div class="powerball-prediction">
+            <span class="powerball-number">${powerball}</span>
+          </div>
+          <div class="confidence">Confidence: ${(mlPrediction.confidence * 100).toFixed(1)}%</div>
+          <div class="model-info">Model: ${mlPrediction.model}</div>
+        </div>
+      `;
+    }
   }
 
   function displayRecommendations(recommendations) {
@@ -646,40 +676,49 @@
   console.log('[Debug] displayRecommendations: recommendations =', recommendations);
   console.log('[Debug] displayRecommendations: elements.recommendations =', elements.recommendations);
   if (!elements.recommendations) return;
+  // Show white ball recommendations
   elements.recommendations.innerHTML = `
-      <div class="recommendation-section">
-        <h3>🎯 High Confidence Numbers</h3>
-        <div class="number-grid">
-          ${recommendations.highConfidence.map(num => 
-            `<span class="number high-confidence">${num}</span>`
-          ).join(' ')}
-          ${recommendations.highConfidence.length === 0 ? 
-            '<span class="no-data">No strong matches found</span>' : ''}
-        </div>
+    <div class="recommendation-section">
+      <h3>🎯 High Confidence White Balls</h3>
+      <div class="number-grid">
+        ${recommendations.highConfidence.map(num => 
+          `<span class="number high-confidence">${num}</span>`
+        ).join(' ')}
+        ${recommendations.highConfidence.length === 0 ? 
+          '<span class="no-data">No strong matches found</span>' : ''}
       </div>
-      
-      <div class="recommendation-section">
-        <h3>⚡ Energy-Based Numbers</h3>
-        <div class="number-grid">
-          ${recommendations.energyBased.map(num => 
-            `<span class="number energy-based">${num}</span>`
-          ).join(' ')}
-        </div>
+    </div>
+    <div class="recommendation-section">
+      <h3>⚡ Energy-Based White Balls</h3>
+      <div class="number-grid">
+        ${recommendations.energyBased.map(num => 
+          `<span class="number energy-based">${num}</span>`
+        ).join(' ')}
       </div>
-      
-      <div class="recommendation-section">
-        <h3>🤖 ML-Based Numbers</h3>
-        <div class="number-grid">
-          ${recommendations.mlBased.map(num => 
-            `<span class="number ml-based">${num}</span>`
-          ).join(' ')}
-        </div>
+    </div>
+    <div class="recommendation-section">
+      <h3>🤖 ML-Based White Balls</h3>
+      <div class="number-grid">
+        ${recommendations.mlBased.map(num => 
+          `<span class="number ml-based">${num}</span>`
+        ).join(' ')}
       </div>
-      
-      <div class="recommendation-summary">
-        <p>${recommendations.summary}</p>
+    </div>
+    <div class="recommendation-summary">
+      <p>${recommendations.summary}</p>
+    </div>
+  `;
+  // Show Powerball recommendation in dedicated section if present
+  if (elements.powerballResults && recommendations.powerball) {
+    elements.powerballResults.innerHTML += `
+      <div class="powerball-recommendation-section">
+        <h3>🔴 Powerball Recommendation</h3>
+        <div class="powerball-recommendation">
+          <span class="powerball-number">${recommendations.powerball}</span>
+        </div>
       </div>
     `;
+  }
   }
 
   function displayBacktestResults(results) {
@@ -829,6 +868,7 @@
   if (!elements.mlResults) {
     console.warn('[Debug] displayAnalysisResults: elements.mlResults is missing or falsy');
   }
+
   if (analysisResults && analysisResults.mlPrediction && elements.mlResults) {
     displayMLResults(analysisResults.mlPrediction, elements.mlResults);
     if (analysisResults.energyData && elements.recommendations) {
@@ -845,6 +885,6 @@
   } else {
     console.warn('[Debug] displayAnalysisResults: condition for displaying ML results not met');
   }
+}
   }
-
 })();
