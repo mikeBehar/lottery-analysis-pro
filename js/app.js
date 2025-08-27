@@ -334,6 +334,19 @@
   });
 
   // ==================== CORE FUNCTIONS ==================== //
+
+  // --- Cancel Button Display ---
+  function showCancelButton() {
+    if (elements.cancelBtn) {
+      elements.cancelBtn.style.display = 'inline-block';
+    }
+  }
+  function hideCancelButton() {
+    if (elements.cancelBtn) {
+      elements.cancelBtn.style.display = 'none';
+    }
+  }
+
   function showProgress(message) {
     elements.progressIndicator.style.display = 'block';
     elements.progressIndicator.innerHTML = `
@@ -875,16 +888,6 @@ function generateRecommendations(energyData, mlPrediction) {
   }
 
   // --- Cancel Button Display ---
-  function showCancelButton() {
-    if (elements.cancelBtn) {
-      elements.cancelBtn.style.display = 'inline-block';
-    }
-  }
-  function hideCancelButton() {
-    if (elements.cancelBtn) {
-      elements.cancelBtn.style.display = 'none';
-    }
-  }
 
   // --- Always Display Current Predictions ---
   // In displayAnalysisResults or after analysis, ensure predictions are shown:
