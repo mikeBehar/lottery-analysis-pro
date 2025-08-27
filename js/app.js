@@ -881,7 +881,7 @@ function generateRecommendations(energyData, mlPrediction) {
   }
 
 
-s c
+
 
   // --- Analyze Button Visual State ---
   // Set initial button color to red (disabled)
