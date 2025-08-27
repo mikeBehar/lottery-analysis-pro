@@ -32,6 +32,21 @@ function setAnalyzeBtnState(enabled) {
     recommendations: document.getElementById('recommendations'),
     // Add more as needed for your UI
   };
+
+  // --- Analyze Button Visual State ---
+  function setAnalyzeBtnState(enabled) {
+    if (!elements.analyzeBtn) return;
+    elements.analyzeBtn.disabled = !enabled;
+    if (enabled) {
+      elements.analyzeBtn.style.backgroundColor = '#27ae60'; // green
+      elements.analyzeBtn.style.color = '#fff';
+      elements.analyzeBtn.textContent = 'Analyze Now';
+    } else {
+      elements.analyzeBtn.style.backgroundColor = '#c0392b'; // red
+      elements.analyzeBtn.style.color = '#fff';
+      elements.analyzeBtn.textContent = 'Waiting';
+    }
+  }
   'use strict';
 
   // ==================== CONSTANTS ==================== //
