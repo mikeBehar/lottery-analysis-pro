@@ -830,19 +830,21 @@ function generateRecommendations(energyData, mlPrediction) {
   }
 
 
-  function setAnalyzeBtnState(enabled) {
-    if (!elements.analyzeBtn) return;
-    elements.analyzeBtn.disabled = !enabled;
-    if (enabled) {
-      elements.analyzeBtn.style.backgroundColor = '#27ae60'; // green
-      elements.analyzeBtn.style.color = '#fff';
-      elements.analyzeBtn.textContent = 'Analyze Now';
-    } else {
-      elements.analyzeBtn.style.backgroundColor = '#c0392b'; // red
-      elements.analyzeBtn.style.color = '#fff';
-      elements.analyzeBtn.textContent = 'Waiting';
-    }
+
+// --- Analyze Button Visual State ---
+function setAnalyzeBtnState(enabled) {
+  if (!elements.analyzeBtn) return;
+  elements.analyzeBtn.disabled = !enabled;
+  if (enabled) {
+    elements.analyzeBtn.style.backgroundColor = '#27ae60'; // green
+    elements.analyzeBtn.style.color = '#fff';
+    elements.analyzeBtn.textContent = 'Analyze Now';
+  } else {
+    elements.analyzeBtn.style.backgroundColor = '#c0392b'; // red
+    elements.analyzeBtn.style.color = '#fff';
+    elements.analyzeBtn.textContent = 'Waiting';
   }
+}
 
   // --- Analyze Button Visual State ---
   // Set initial button color to red (disabled)
