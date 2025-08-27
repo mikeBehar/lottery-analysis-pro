@@ -80,8 +80,18 @@
   }
 
   function showError(title, error) {
+    let msg = '';
+    if (error && typeof error.message === 'string') {
+      msg = error.message;
+    } else if (typeof error === 'string') {
+      msg = error;
+    } else if (error) {
+      msg = JSON.stringify(error);
+    } else {
+      msg = 'Unknown error';
+    }
     console.error(`${title}:`, error);
-    alert(`${title}: ${error.message}`);
+    alert(`${title}: ${msg}`);
   }
 
   function resetFileInput() {
