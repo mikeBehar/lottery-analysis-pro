@@ -829,12 +829,6 @@ function generateRecommendations(energyData, mlPrediction) {
     state.activeWorkers.clear();
   }
 
-  // --- Analyze Button Visual State ---
-  // Set initial button color to red (disabled)
-  if (elements.analyzeBtn) {
-    elements.analyzeBtn.style.backgroundColor = '#c0392b'; // red
-    elements.analyzeBtn.style.color = '#fff';
-  }
 
   function setAnalyzeBtnState(enabled) {
     if (!elements.analyzeBtn) return;
@@ -848,6 +842,13 @@ function generateRecommendations(energyData, mlPrediction) {
       elements.analyzeBtn.style.color = '#fff';
       elements.analyzeBtn.textContent = 'Waiting';
     }
+  }
+
+  // --- Analyze Button Visual State ---
+  // Set initial button color to red (disabled)
+  if (elements.analyzeBtn) {
+    elements.analyzeBtn.style.backgroundColor = '#c0392b'; // red
+    elements.analyzeBtn.style.color = '#fff';
   }
 
   // --- Cancel Button Display ---
