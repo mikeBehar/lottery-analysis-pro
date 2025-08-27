@@ -244,6 +244,17 @@
     }
   }
 
+
+  function cancelAnalysis() {
+    state.isCancelled = true;
+    cancelAllWorkers();
+    hideProgress();
+    updateProgress('Analysis cancelled');
+    setTimeout(() => {
+      elements.progressText.textContent = '';
+    }, 2000);
+  }
+
   function initEventListeners() {
     console.log('initEventListeners:');
     console.log('  uploadInput:', elements.uploadInput);
