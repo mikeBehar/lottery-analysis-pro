@@ -1,0 +1,52 @@
+---
+# Patch: Fix block structure above runAnalysis in app.js
+# Date: 2025-08-27
+# Description: Properly close try/catch in handleFileUpload to resolve 'catch or finally expected' error at runAnalysis.
+---
+*** Update File: js/app.js
+@@ async function handleFileUpload(event) {
+-    try {
+-      console.log('handleFileUpload: event', event);
+-      if (!event || !event.target || !event.target.files) {
+-        console.log('handleFileUpload: event missing target/files');
+-        return;
+-      }
+-      const file = event.target.files[0];
+-      console.log('handleFileUpload: file from event', file);
+-      if (!file) {
+-        console.log('handleFileUpload: no file found');
+-        return;
+-      }
+-      if (!file.name.endsWith('.csv')) {
+-        console.log('handleFileUpload: file is not .csv');
+-        throw new Error('Please upload a CSV file');
+-      }
+-      showProgress('Parsing CSV file...');
+-      const content = await readFileContent(file);
+-      // CSV parsing and state.draws assignment is handled in parseCSVWithPapaParse
+-      await parseCSVWithPapaParse(content);
+-    }
++    try {
++      console.log('handleFileUpload: event', event);
++      if (!event || !event.target || !event.target.files) {
++        console.log('handleFileUpload: event missing target/files');
++        return;
++      }
++      const file = event.target.files[0];
++      console.log('handleFileUpload: file from event', file);
++      if (!file) {
++        console.log('handleFileUpload: no file found');
++        return;
++      }
++      if (!file.name.endsWith('.csv')) {
++        console.log('handleFileUpload: file is not .csv');
++        throw new Error('Please upload a CSV file');
++      }
++      showProgress('Parsing CSV file...');
++      const content = await readFileContent(file);
++      // CSV parsing and state.draws assignment is handled in parseCSVWithPapaParse
++      await parseCSVWithPapaParse(content);
++    } catch (error) {
++      console.error('handleFileUpload error:', error);
++      showError('File Upload Error', error);
++    }
