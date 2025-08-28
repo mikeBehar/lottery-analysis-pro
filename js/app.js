@@ -136,9 +136,10 @@
             // Skip header row and filter out any rows that are too short
             let errorCount = 0;
             let draws = [];
-            results.data.slice(1).forEach((row, idx) => {
+            // Skip first two rows (title and column headers)
+            results.data.slice(2).forEach((row, idx) => {
               if (row.length < 7) {
-                console.error(`[CSV PARSE] Row ${idx+2} too short:`, row);
+                console.error(`[CSV PARSE] Row ${idx+3} too short:`, row);
                 errorCount++;
                 return;
               }
@@ -147,20 +148,20 @@
               const redBall = Number(powerball);
               // Validate white balls
               if (whiteBalls.some(isNaN) || new Set(whiteBalls).size !== 5 || whiteBalls.some(n => n < 1 || n > 69)) {
-                console.error(`[CSV PARSE] Invalid white ball numbers in row ${idx+2}:`, row, 'Parsed:', whiteBalls);
+                console.error(`[CSV PARSE] Invalid white ball numbers in row ${idx+3}:`, row, 'Parsed:', whiteBalls);
                 errorCount++;
                 return;
               }
               // Validate red ball
               if (isNaN(redBall) || redBall < 1 || redBall > 26) {
-                console.error(`[CSV PARSE] Invalid Powerball (red ball) in row ${idx+2}:`, row, 'Parsed:', redBall);
+                console.error(`[CSV PARSE] Invalid Powerball (red ball) in row ${idx+3}:`, row, 'Parsed:', redBall);
                 errorCount++;
                 return;
               }
               // Parse date (MM/DD/YY or similar)
               const date = new Date(drawDate);
               if (isNaN(date.getTime())) {
-                console.error(`[CSV PARSE] Invalid date in row ${idx+2}:`, row, 'Parsed:', drawDate);
+                console.error(`[CSV PARSE] Invalid date in row ${idx+3}:`, row, 'Parsed:', drawDate);
                 errorCount++;
                 return;
               }
