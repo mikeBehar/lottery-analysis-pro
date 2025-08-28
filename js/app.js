@@ -133,38 +133,52 @@
             return;
           }
           try {
-            state.draws = results.data
-              .filter(row => row.length >= 10)
-              .map(row => {
-                // mm, dd, yyyy, n1, n2, n3, n4, n5, powerball, multiplier
-                const [mm, dd, yyyy, n1, n2, n3, n4, n5, powerball, multiplier] = row;
-                const whiteBalls = [n1, n2, n3, n4, n5].map(Number);
-                const redBall = Number(powerball);
-                // Validate white balls
-                if (whiteBalls.some(isNaN) || new Set(whiteBalls).size !== 5 || whiteBalls.some(n => n < 1 || n > 69)) {
-                  throw new Error('Invalid white ball numbers in CSV');
-                }
-                // Validate red ball
-                if (isNaN(redBall) || redBall < 1 || redBall > 26) {
-                  throw new Error('Invalid Powerball (red ball) number in CSV');
-                }
-                const date = new Date(`${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`);
-                if (isNaN(date.getTime())) {
-                  throw new Error(`Invalid date: ${yyyy}-${mm}-${dd}`);
-                }
-                return {
-                  date: date,
-                  whiteBalls: whiteBalls,
-                  powerball: redBall
-                  // multiplier: Number(multiplier) // present but ignored
-                };
-              })
-              .filter(draw => !isNaN(draw.powerball));
+            // Skip header row and filter out any rows that are too short
+            let errorCount = 0;
+            let draws = [];
+            results.data.slice(1).forEach((row, idx) => {
+              if (row.length < 7) {
+                console.error(`[CSV PARSE] Row ${idx+2} too short:`, row);
+                errorCount++;
+                return;
+              }
+              const [drawDate, n1, n2, n3, n4, n5, powerball] = row;
+              const whiteBalls = [n1, n2, n3, n4, n5].map(Number);
+              const redBall = Number(powerball);
+              // Validate white balls
+              if (whiteBalls.some(isNaN) || new Set(whiteBalls).size !== 5 || whiteBalls.some(n => n < 1 || n > 69)) {
+                console.error(`[CSV PARSE] Invalid white ball numbers in row ${idx+2}:`, row, 'Parsed:', whiteBalls);
+                errorCount++;
+                return;
+              }
+              // Validate red ball
+              if (isNaN(redBall) || redBall < 1 || redBall > 26) {
+                console.error(`[CSV PARSE] Invalid Powerball (red ball) in row ${idx+2}:`, row, 'Parsed:', redBall);
+                errorCount++;
+                return;
+              }
+              // Parse date (MM/DD/YY or similar)
+              const date = new Date(drawDate);
+              if (isNaN(date.getTime())) {
+                console.error(`[CSV PARSE] Invalid date in row ${idx+2}:`, row, 'Parsed:', drawDate);
+                errorCount++;
+                return;
+              }
+              draws.push({
+                date: date,
+                whiteBalls: whiteBalls,
+                powerball: redBall
+              });
+            });
+            if (errorCount === 0) {
+              console.log('[CSV PARSE] No errors detected. Parsed draws:', draws.length);
+            } else {
+              console.warn(`[CSV PARSE] Completed with ${errorCount} error(s). Parsed draws: ${draws.length}`);
+            }
+            state.draws = draws;
             setAnalyzeBtnState(true); // enable and turn green
-            if (DEBUG) console.log(`Successfully parsed ${state.draws.length} draws`);
             resolve(state.draws);
           } catch (error) {
-            // Always reject with an Error object
             if (error instanceof Error) {
               reject(error);
             } else {
