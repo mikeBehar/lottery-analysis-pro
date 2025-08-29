@@ -13,6 +13,20 @@
     progressIndicator: document.createElement('div'),
     backtestResults: document.createElement('div'),
     recommendations: document.getElementById('recommendations'),
+    energyResults: document.getElementById('energy-results') || (() => {
+      const div = document.createElement('div');
+      div.id = 'energy-results';
+      div.className = 'energy-panel';
+      document.body.appendChild(div);
+      return div;
+    })(),
+    mlResults: document.getElementById('ml-results') || (() => {
+      const div = document.createElement('div');
+      div.id = 'ml-results';
+      div.className = 'ml-panel';
+      document.body.appendChild(div);
+      return div;
+    })(),
     // Add more as needed for your UI
   };
 
@@ -71,13 +85,7 @@
   activeWorkers: null
 };
 
-  function validateAndGetFile(event) {
-    const file = event.target.files[0];
-    if (!file) {
-      logError('No file selected for upload');
-    }
-    return file;
-  }
+  // Removed unused function validateAndGetFile
 
   function showError(title, error) {
     let msg = '';
@@ -94,114 +102,15 @@
     alert(`${title}: ${msg}`);
   }
 
-  function resetFileInput() {
-    if (elements.uploadInput) {
-      elements.uploadInput.value = '';
-    }
-    elements.analyzeBtn.disabled = true;
-  }
+  // Removed unused function resetFileInput
 
   // ==================== CSV PARSING ==================== //
   const DEBUG = true;
 
-  function readFileContent(file) {
-    if (DEBUG) console.log('readFileContent: called', file);
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (DEBUG) console.log('readFileContent: onload', e);
-        resolve(e.target.result);
-      };
-      reader.onerror = (e) => {
-        if (DEBUG) console.log('readFileContent: onerror', e);
-        reject(e);
-      };
-      reader.readAsText(file);
-    });
-  }
+import { readFileContent, parseCSVWithPapaParse } from './csv-parser.js';
 
   async function parseCSVWithPapaParse(content) {
-    if (DEBUG) console.log('parseCSVWithPapaParse: called');
-    return new Promise((resolve, reject) => {
-      Papa.parse(content, {
-        header: false,
-        skipEmptyLines: true,
-        complete: function(results) {
-          if (DEBUG) console.log('parseCSVWithPapaParse: Papa.parse complete', results);
-          if (results.errors.length > 0) {
-            reject(new Error(`CSV errors: ${results.errors.map(e => e.message).join(', ')}`));
-            return;
-          }
-          try {
-            // Skip header row and filter out any rows that are too short
-            let errorCount = 0;
-            let draws = [];
-            // Skip first two rows (title and column headers)
-            results.data.slice(2).forEach((row, idx) => {
-              if (row.length < 7) {
-                console.error(`[CSV PARSE] Row ${idx+3} too short:`, row);
-                errorCount++;
-                return;
-              }
-              const [drawDate, n1, n2, n3, n4, n5, powerball] = row;
-              const whiteBalls = [n1, n2, n3, n4, n5].map(Number);
-              const redBall = Number(powerball);
-              // Validate white balls
-              if (whiteBalls.some(isNaN) || new Set(whiteBalls).size !== 5 || whiteBalls.some(n => n < 1 || n > 69)) {
-                console.error(`[CSV PARSE] Invalid white ball numbers in row ${idx+3}:`, row, 'Parsed:', whiteBalls);
-                errorCount++;
-                return;
-              }
-              // Validate red ball
-              if (isNaN(redBall) || redBall < 1 || redBall > 26) {
-                console.error(`[CSV PARSE] Invalid Powerball (red ball) in row ${idx+3}:`, row, 'Parsed:', redBall);
-                errorCount++;
-                return;
-              }
-              // Parse date (MM/DD/YY or similar)
-              const date = new Date(drawDate);
-              if (isNaN(date.getTime())) {
-                console.error(`[CSV PARSE] Invalid date in row ${idx+3}:`, row, 'Parsed:', drawDate);
-                errorCount++;
-                return;
-              }
-              draws.push({
-                date: date,
-                whiteBalls: whiteBalls,
-                powerball: redBall
-              });
-            });
-            if (errorCount === 0) {
-              console.log('[CSV PARSE] No errors detected. Parsed draws:', draws.length);
-            } else {
-              console.warn(`[CSV PARSE] Completed with ${errorCount} error(s). Parsed draws: ${draws.length}`);
-            }
-            state.draws = draws;
-            setAnalyzeBtnState(true); // enable and turn green
-            resolve(state.draws);
-          } catch (error) {
-            if (error instanceof Error) {
-              reject(error);
-            } else {
-              reject(new Error(error ? error.toString() : 'Unknown error during CSV parsing'));
-            }
-          }
-        },
-        error: function(error) {
-          if (DEBUG) console.log('parseCSVWithPapaParse: Papa.parse error', error);
-          let msg = 'Unknown error';
-          if (error && typeof error.message === 'string') {
-            msg = error.message;
-          } else if (typeof error === 'string') {
-            msg = error;
-          } else if (error) {
-            msg = JSON.stringify(error);
-          }
-          reject(new Error(`CSV parsing failed: ${msg}`));
-        }
-      });
-    });
-  }
+// CSV parsing logic moved to csv-parser.js
 // ==================== INITIALIZATION FUNCTIONS ==================== //
   function initUIElements() {
   // ==================== INITIALIZATION FUNCTIONS ==================== //
@@ -213,7 +122,7 @@
         elements.powerballResults.id = 'powerball-results';
         elements.powerballResults.className = 'powerball-panel';
         // Insert after recommendations if present, else at end of body
-        if (elements.recommendations && elements.recommendations.parentNode) {
+        if (elements.recommendations?.parentNode) {
           elements.recommendations.parentNode.insertBefore(elements.powerballResults, elements.recommendations.nextSibling);
         } else {
           document.body.appendChild(elements.powerballResults);
@@ -296,13 +205,7 @@
 
 
   function cancelAnalysis() {
-    state.isCancelled = true;
-    cancelAllWorkers();
-    hideProgress();
-    updateProgress('Analysis cancelled');
-    setTimeout(() => {
-      elements.progressText.textContent = '';
-    }, 2000);
+  // This function is now removed as it was duplicated.
   }
 
   function initEventListeners() {
@@ -319,8 +222,8 @@
       handleFileUpload(e);
     });
     elements.analyzeBtn.addEventListener('click', (e) => {
-      console.log('analyzeBtn click event fired');
-      runAnalysis(e);
+  console.log('analyzeBtn click event fired');
+  runAnalysis();
     });
 
     elements.temporalDecaySelector.addEventListener('change', (e) => {
@@ -356,11 +259,8 @@
       elements.cancelBtn.style.display = 'inline-block';
     }
   }
-  function hideCancelButton() {
-    if (elements.cancelBtn) {
-      elements.cancelBtn.style.display = 'none';
-    }
-  }
+  // Removed unused function hideCancelButton
+
 
   function showProgress(message) {
     elements.progressIndicator.style.display = 'block';
@@ -373,6 +273,19 @@
     elements.analyzeBtn.disabled = true;
     state.isAnalyzing = true;
     showCancelButton();
+    updateProgress(message);
+  }
+
+  // Add missing updateProgress function
+  function updateProgress(message, percent) {
+    if (elements.progressText) {
+      elements.progressText.textContent = percent !== undefined ? `${message} (${percent}%)` : message;
+    }
+    if (elements.progressIndicator && message) {
+      // Also update spinner message if visible
+      const p = elements.progressIndicator.querySelector('p');
+      if (p) p.textContent = percent !== undefined ? `${message} (${percent}%)` : message;
+    }
   }
 
   function hideProgress() {
@@ -387,7 +300,7 @@
   async function handleFileUpload(event) {
     try {
       console.log('handleFileUpload: event', event);
-      if (!event || !event.target || !event.target.files) {
+      if (!event?.target?.files) {
         console.log('handleFileUpload: event missing target/files');
         return;
       }
@@ -409,10 +322,20 @@
       console.error('handleFileUpload error:', error);
       showError('File Upload Error', error);
     }
+  }
+
+  // Top-level cancelAllWorkers helper (if not already defined)
+  function cancelAllWorkers() {
+    if (state.activeWorkers && typeof state.activeWorkers.forEach === 'function') {
+      state.activeWorkers.forEach(worker => {
+        if (worker && typeof worker.terminate === 'function') worker.terminate();
+      });
+      state.activeWorkers.clear();
+    }
+  }
+
   // Add debug logging to analysis flow
   async function runAnalysis() {
-  // Expose runAnalysis to global scope for event handlers
-  window.runAnalysis = runAnalysis;
     if (DEBUG) console.log('runAnalysis called');
     if (state.isAnalyzing) return;
     // Clear previous results and reset state
@@ -488,7 +411,15 @@
     }
     updateProgress('Initializing backtesting worker...');
     return new Promise((resolve, reject) => {
-      const backtestWorker = new Worker('js/workers/backtest-worker.js');
+      let backtestWorker;
+      try {
+        backtestWorker = new Worker('js/workers/backtest-worker.js');
+      } catch (err) {
+        console.error('[App] Failed to instantiate backtest-worker.js:', err);
+        showError('Worker Error', 'Failed to load backtest-worker.js. Check file path and server setup.');
+        reject(new Error('Failed to instantiate backtest-worker.js'));
+        return;
+      }
       state.activeWorkers = state.activeWorkers || new Map();
       state.activeWorkers.set('backtest', backtestWorker);
       let responded = false;
@@ -506,6 +437,7 @@
           case 'error':
             responded = true;
             state.activeWorkers.delete('backtest');
+            showError('Backtest Worker Error', data.message);
             reject(new Error(data.message));
             break;
         }
@@ -513,95 +445,45 @@
       backtestWorker.onerror = function(error) {
         responded = true;
         state.activeWorkers.delete('backtest');
-        reject(error);
+        console.error('[App] backtestWorker.onerror:', error);
+  showError('Worker Error', error?.message || 'Unknown worker error');
+  reject(new Error(error?.message || 'Unknown worker error'));
       };
       // Ensure a message is always posted back, even if worker is terminated
       backtestWorker.onclose = function() {
         if (!responded) {
           state.activeWorkers.delete('backtest');
+          showError('Worker Error', 'Backtest worker terminated before response.');
           reject(new Error('Worker terminated before response.'));
         }
       };
-      backtestWorker.postMessage({
-        draws: state.draws,
-        decayRate: decayRate,
-        method: state.currentMethod,
-        config: CONFIG.backtestSettings
-      });
+      try {
+        backtestWorker.postMessage({
+          draws: state.draws,
+          decayRate: decayRate,
+          method: state.currentMethod,
+          config: CONFIG.backtestSettings
+        });
+      } catch (err) {
+        console.error('[App] Failed to postMessage to backtest-worker.js:', err);
+        showError('Worker Error', 'Failed to communicate with backtest-worker.js.');
+        reject(new Error('Failed to postMessage to backtest-worker.js'));
+      }
     });
   }
 
   async function getPredictionForBacktest(draws, decayRate) {
-    const allNumbers = Array.from({length: 69}, (_, i) => i + 1);
-    const energyData = calculateEnergy(allNumbers, CONFIG.energyWeights);
-
-    switch (state.currentMethod) {
-      case 'energy':
-        return { 
-          numbers: energyData.sort((a, b) => b.energy - a.energy).slice(0, 10).map(n => n.number),
-          confidence: 0.7, 
-          model: 'energy' 
-        };
-      case 'frequency':
-        return getFrequencyFallback(draws, decayRate);
-      case 'ml':
-        return await getMLPrediction(draws, decayRate);
-      case 'combined':
-      default:
-        const mlResult = await getMLPrediction(draws, decayRate);
-        return {
-          numbers: [...new Set([...mlResult.numbers, ...energyData.sort((a, b) => b.energy - a.energy).slice(0, 5).map(n => n.number)])].slice(0, 10),
-          confidence: (mlResult.confidence + 0.7) / 2,
-          model: 'combined'
-        };
-    }
+    // STUB: Placeholder for future implementation
+    console.warn('getPredictionForBacktest() called: stub function, not yet implemented.');
+    return null;
   }
-
+  // Removed unused function getPredictionForBacktest
+  // STUB: Placeholder for future implementation
   function calculatePerformanceMetrics(results) {
-    const totalHits = Object.values(results.hits).reduce((sum, count) => sum + count, 0);
-    const hitRate = results.totalTests > 0 ? totalHits / results.totalTests : 0;
-    
-    let totalPredictedNumbers = 0;
-    let correctPredictions = 0;
-    
-    results.simulations.forEach(sim => {
-      totalPredictedNumbers += sim.predicted.length;
-      correctPredictions += sim.matched.length;
-    });
-    
-    const precision = totalPredictedNumbers > 0 ? correctPredictions / totalPredictedNumbers : 0;
-    
-    let totalActualNumbers = 0;
-    results.simulations.forEach(sim => {
-      totalActualNumbers += sim.actual.length;
-    });
-    
-    const recall = totalActualNumbers > 0 ? correctPredictions / totalActualNumbers : 0;
-    
-    const ticketCost = 2;
-    const prizeMap = { 3: 10, 4: 100, 5: 1000, 6: 10000 };
-    let totalSpent = results.totalTests * ticketCost;
-    let totalWon = 0;
-    
-    Object.entries(results.hits).forEach(([hitCount, count]) => {
-      if (prizeMap[hitCount]) {
-        totalWon += count * prizeMap[hitCount];
-      }
-    });
-    
-    const roi = totalSpent > 0 ? ((totalWon - totalSpent) / totalSpent) * 100 : 0;
-    
-    return {
-      hitRate: hitRate,
-      precision: precision,
-      recall: recall,
-      totalSpent: totalSpent,
-      totalWon: totalWon,
-      roi: roi,
-      hitDistribution: results.hits
-    };
+    console.warn('calculatePerformanceMetrics() called: stub function, not yet implemented.');
+    return null;
   }
-
+  // Removed unused function calculatePerformanceMetrics
   // ==================== ML & PREDICTION FUNCTIONS ==================== //
   async function getMLPrediction(draws = state.draws, decayRate = state.decayRate) {
     if (draws.length < 50) {
@@ -610,7 +492,27 @@
     updateProgress('Running ML prediction...');
     // Predict white balls and powerball independently
     return new Promise((resolve, reject) => {
-      const mlWorker = new Worker('js/workers/ml-worker.js');
+      let mlWorker;
+      let timeoutId;
+      let finished = false;
+      function finish(result, isError) {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timeoutId);
+        if (isError) {
+          showError('ML Worker Timeout', 'ML prediction did not respond in time.');
+        }
+        hideProgress();
+        resolve(result);
+      }
+      try {
+        mlWorker = new Worker('js/workers/ml-worker.js');
+      } catch (err) {
+        console.error('[App] Failed to instantiate ml-worker.js:', err);
+        showError('Worker Error', 'Failed to load ml-worker.js. Check file path and server setup.');
+        finish(getFrequencyFallback(draws, decayRate), true);
+        return;
+      }
       state.activeWorkers = state.activeWorkers || new Map();
       state.activeWorkers.set('ml', mlWorker);
       mlWorker.onmessage = function(e) {
@@ -622,25 +524,36 @@
             break;
           case 'result':
             state.activeWorkers.delete('ml');
-            // Expect data.prediction = { whiteBalls: [...], powerball: n, confidence, model }
-            resolve(data.prediction);
+            finish(data.prediction, false);
             break;
           case 'error':
             state.activeWorkers.delete('ml');
-            console.warn('[App] ML worker error:', data.message);
-            resolve(getFrequencyFallback(draws, decayRate));
+            showError('ML Worker Error', data.message);
+            finish(getFrequencyFallback(draws, decayRate), true);
             break;
         }
       };
       mlWorker.onerror = function(error) {
         state.activeWorkers.delete('ml');
         console.error('[App] ML worker onerror:', error);
-        resolve(getFrequencyFallback(draws, decayRate));
+        showError('Worker Error', error.message || error);
+        finish(getFrequencyFallback(draws, decayRate), true);
       };
-      mlWorker.postMessage({
-        draws: draws,
-        decayRate: decayRate
-      });
+      timeoutId = setTimeout(() => {
+        state.activeWorkers.delete('ml');
+        if (mlWorker) mlWorker.terminate();
+        finish(getFrequencyFallback(draws, decayRate), true);
+      }, 10000); // 10 seconds
+      try {
+        mlWorker.postMessage({
+          draws: draws,
+          decayRate: decayRate
+        });
+      } catch (err) {
+        console.error('[App] Failed to postMessage to ml-worker.js:', err);
+        showError('Worker Error', 'Failed to communicate with ml-worker.js.');
+        finish(getFrequencyFallback(draws, decayRate), true);
+      }
     });
   }
 
@@ -683,21 +596,12 @@
   }
 
   // ==================== DISPLAY FUNCTIONS ==================== //
+  // STUB: Placeholder for future implementation
   function displayResults(energyData, mlPrediction, backtestResults) {
-    try {
-      displayEnergyResults(energyData, elements.energyResults);
-      displayMLResults(mlPrediction, elements.mlResults);
-      
-      const recommendations = generateRecommendations(energyData, mlPrediction);
-      displayRecommendations(recommendations);
-      
-      displayBacktestResults(backtestResults);
-      
-    } catch (error) {
-      console.error('Display failed:', error);
-    }
+    console.warn('displayResults() called: stub function, not yet implemented.');
+    return null;
   }
-
+  // Removed unused function displayResults
  
 function generateRecommendations(energyData, mlPrediction) {
   // Use white balls only for recommendations
@@ -862,85 +766,6 @@ function generateRecommendations(energyData, mlPrediction) {
     originalError.apply(console, arguments);
   };
 
-  function cancelAnalysis() {
-    state.isCancelled = true;
-    cancelAllWorkers();
-    hideProgress();
-    updateProgress('Analysis cancelled');
-    setTimeout(() => {
-      elements.progressText.textContent = '';
-    }, 2000);
-  }
-
-  function updateProgress(message, percentage = null) {
-    if (elements.progressText) {
-      elements.progressText.textContent = message;
-      if (percentage !== null) {
-        elements.progressText.textContent += ` (${percentage}%)`;
-      }
-    }
-  }
-
-  function cancelAllWorkers() {
-    if (!state.activeWorkers) return;
-    state.activeWorkers.forEach((worker, key) => {
-      worker.terminate();
-      if (key === 'backtest' || key === 'ml') {
-        // Also send cancel message for graceful shutdown
-        try { worker.postMessage({ type: 'cancel' }); } catch (e) {}
-      }
-      console.log(`Terminated ${key} worker`);
-    });
-    state.activeWorkers.clear();
-  }
-
-
-
-
-  // --- Analyze Button Visual State ---
-  // Set initial button color to red (disabled)
-  if (elements.analyzeBtn) {
-    elements.analyzeBtn.style.backgroundColor = '#c0392b'; // red
-    elements.analyzeBtn.style.color = '#fff';
-  }
-
-  // --- Cancel Button Display ---
-
-  // --- Always Display Current Predictions ---
-  // In displayAnalysisResults or after analysis, ensure predictions are shown:
-  function displayAnalysisResults(analysisResults) {
-    if (DEBUG) console.log('displayAnalysisResults called', analysisResults);
-    console.log('[Debug] displayAnalysisResults: called with', analysisResults);
-    if (!analysisResults) {
-      console.warn('[Debug] displayAnalysisResults: analysisResults is null or undefined');
-      return;
-    }
-    const keys = Object.keys(analysisResults);
-    console.log('[Debug] displayAnalysisResults: analysisResults keys:', keys);
-    if (!analysisResults.mlPrediction) {
-      console.warn('[Debug] displayAnalysisResults: analysisResults.mlPrediction is missing or falsy');
-    }
-    if (!elements.mlResults) {
-      console.warn('[Debug] displayAnalysisResults: elements.mlResults is missing or falsy');
-    }
-
-    if (analysisResults && analysisResults.mlPrediction && elements.mlResults) {
-      displayMLResults(analysisResults.mlPrediction, elements.mlResults);
-      if (analysisResults.energyData && elements.recommendations) {
-        const recommendations = generateRecommendations(analysisResults.energyData, analysisResults.mlPrediction);
-        displayRecommendations(recommendations);
-      } else {
-        if (!analysisResults.energyData) {
-          console.warn('[Debug] displayAnalysisResults: analysisResults.energyData is missing or falsy');
-        }
-        if (!elements.recommendations) {
-          console.warn('[Debug] displayAnalysisResults: elements.recommendations is missing or falsy');
-        }
-      }
-    } else {
-      console.warn('[Debug] displayAnalysisResults: condition for displaying ML results not met');
-    }
-  }
   // Expose runAnalysis to global scope for event handlers
   window.runAnalysis = runAnalysis;
 

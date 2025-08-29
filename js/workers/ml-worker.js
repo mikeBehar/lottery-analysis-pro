@@ -1,11 +1,29 @@
+// First line: confirm worker script is loaded
+console.log('[ML Worker] Script loaded');
+// Top-level error handler for uncaught exceptions
+self.onerror = function(event) {
+  try {
+    self.postMessage({ type: 'error', data: { message: 'Uncaught error in ML worker: ' + event.message } });
+  } catch (e) {}
+  // Let the error propagate to the browser as well
+  return false;
+};
 /**
  * ML Prediction Web Worker
  * Version: 1.0.0 | Created: 2025-08-21
  * Handles machine learning predictions in background thread
  */
 
-// Import all required dependencies
-importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js', '../utils.js', '../ml.js');
+
+// Debug: Log before loading dependencies
+console.log('[ML Worker] Starting worker script');
+try {
+  importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js', '../utils.js', '../ml.js');
+  console.log('[ML Worker] importScripts completed successfully');
+} catch (err) {
+  console.error('[ML Worker] importScripts failed:', err);
+  self.postMessage({ type: 'error', data: { message: 'importScripts failed: ' + (err && err.message ? err.message : err) } });
+}
 
 let shouldStop = false;
 
