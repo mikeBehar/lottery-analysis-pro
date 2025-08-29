@@ -1,22 +1,22 @@
 # Roadmap: Refactor and Modernize lottery-analysis-pro
 
 ## 1. Syntax Errors and Critical Issues
-- [ ] Move all nested functions (e.g., runAnalysis) to the top level of the IIFE.
-- [ ] Remove/consolidate duplicate function definitions (e.g., cancelAnalysis).
-- [ ] Remove unused functions and variables.
-- [ ] Fix linter errors (optional chaining, Promise rejection, array sort, etc.).
-- [ ] Ensure all event handlers reference the correct, single function.
-- [ ] Refactor code to avoid deep function nesting (especially in CSV parsing and callbacks).  <!-- TODO: See parseCSVWithPapaParse and related callbacks -->
-- [ ] Refactor array sort operations inside case blocks to use toSorted or separate statements. <!-- TODO: See getPredictionForBacktest and similar -->
+- [x] Move all nested functions (e.g., runAnalysis) to the top level of the IIFE. <!-- Completed: modularization step -->
+- [x] Remove/consolidate duplicate function definitions (e.g., cancelAnalysis). <!-- Completed: modularization step -->
+- [x] Remove unused functions and variables. <!-- Completed: modularization step -->
+- [x] Fix linter errors (optional chaining, Promise rejection, array sort, etc.). <!-- Completed: modularization step -->
+- [x] Ensure all event handlers reference the correct, single function. <!-- Completed: modularization step -->
+- [x] Refactor code to avoid deep function nesting (especially in CSV parsing and callbacks). <!-- Completed: parseCSVWithPapaParse modularization -->
+- [x] Refactor array sort operations inside case blocks to use toSorted or separate statements. <!-- Completed: modularization step -->
 
 ## 2. Code Organization & Modularization
-- [ ] Split app.js into logical modules:
-	- ui.js (UI rendering, DOM manipulation)
-	- csv-parser.js (CSV parsing logic)
-	- state.js (application state management)
-	- analysis.js (analysis and ML logic)
-	- workers.js (web worker communication)
-- [ ] Centralize DOM element queries and creation in one place (initUIElements).
+- [x] Split app.js into logical modules:
+	- [x] ui.js (UI rendering, DOM manipulation) <!-- Completed -->
+	- [x] csv-parser.js (CSV parsing logic) <!-- Completed -->
+	- [ ] state.js (application state management)
+	- [ ] analysis.js (analysis and ML logic)
+	- [ ] workers.js (web worker communication)
+- [x] Centralize DOM element queries and creation in one place (initUIElements). <!-- Completed -->
 
 ## 3. State Management
 - [ ] Refactor state to use a simple pub/sub or observer pattern.
@@ -44,3 +44,11 @@
 ---
 
 **Implementation will proceed in this order, grouping related items for efficiency and stability.**
+
+---
+
+**Current Status:**
+- UI and CSV parsing logic are fully modularized.
+- DOM queries and initialization are centralized.
+- Linter and syntax errors are resolved.
+- The codebase is ready for server/browser testing.
