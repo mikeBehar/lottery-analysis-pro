@@ -1,11 +1,16 @@
 {
   "name": "lottery-analysis-pro",
   "version": "1.0.0",
+  "type": "module",
   "description": "A tool for advanced lottery number analysis and prediction.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint js/*.js"
+    "test": "jest",
+    "lint": "eslint js/*.js",
+    "build": "esbuild js/app.js --bundle --outfile=dist/bundle.js --sourcemap",
+    "pretest:e2e": "npm run build",
+    "test:e2e": "playwright test",
+    "posttest:e2e": "npx playwright show-report"
   },
   "repository": {
     "type": "git",
@@ -19,6 +24,13 @@
   },
   "homepage": "https://github.com/mikeBehar/lottery-analysis-pro#readme",
   "devDependencies": {
-    "eslint": "^9.33.0"
+    "@babel/core": "^7.28.3",
+    "@babel/preset-env": "^7.28.3",
+    "@playwright/test": "^1.55.0",
+    "esbuild": "^0.25.9",
+    "eslint": "^9.33.0",
+    "jest": "^30.1.1",
+    "jest-environment-jsdom": "^30.1.1",
+    "live-server": "^1.2.2"
   }
 }

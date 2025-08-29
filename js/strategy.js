@@ -62,3 +62,5 @@ class Strategy {
     return Strategy.loadAll().find(s => s.name === name);
   }
 }
+
+export default Strategy;

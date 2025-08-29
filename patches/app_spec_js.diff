@@ -1,0 +1,9 @@
+--- a/tests-e2e/app.spec.js
++++ b/tests-e2e/app.spec.js
+@@ -41,5 +41,6 @@
+ 
+     // Optional: Check for a specific result card to be more precise
+     await expect(page.locator('.number-card')).not.toHaveCount(0);
++    await page.pause(); // Keep browser open for inspection
+   });
+ });

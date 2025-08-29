@@ -363,3 +363,5 @@ if (typeof window !== 'undefined') {
   // In worker context, export the class for importScripts
   self.LotteryML = LotteryML;
 }
+
+export default LotteryML;

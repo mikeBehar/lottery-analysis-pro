@@ -225,11 +225,12 @@ function getGridPositionScore(num) {
 
 // =============== EXPORTS =============== //
 // Note: If using ES6 modules, add export statements
-// export {
-//   calculateEnergy, displayEnergyResults,
-//   applyTemporalDecay, findNumberPairs, calculateGapAnalysis,
-//   isPrime, getDigitalRoot, getGridPositionScore
-// };
+export {
+  calculateEnergy, displayEnergyResults,
+  applyTemporalDecay, findNumberPairs, calculateGapAnalysis,
+  isPrime, getDigitalRoot, getGridPositionScore,
+  applyTemporalWeighting, calculateTemporalFrequency
+};
 
 // =============== TEMPORAL WEIGHTING =============== //
 /**

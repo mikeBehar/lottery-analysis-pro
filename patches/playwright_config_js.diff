@@ -1,0 +1,35 @@
+--- a/playwright.config.js
++++ b/playwright.config.js
+@@ -13,18 +13,24 @@
+   // Configure projects for major browsers
+   projects: [
+     {
+-      name: 'chromium',
+-      use: { ...devices['Desktop Chrome'] },
++      name: 'Brave',
++      use: {
++        ...devices['Desktop Chrome'],
++        channel: 'chrome', // Important: use chrome channel for Brave
++        launchOptions: {
++          executablePath: 'C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe',
++          args: ['--incognito']
++        }
++      },
+     },
+     // {
+     //   name: 'firefox',
+     //   use: { ...devices['Desktop Firefox'] },
+     // },
+     // {
+     //   name: 'webkit',
+     //   use: { ...devices['Desktop Safari'] },
+     // },
+   ],
+ 
+   // Run your local dev server before starting the tests
+   webServer: {
+-    command: 'python -m http.server 5500',
++    command: 'python -m http.server 5500',
+     url: 'http://127.0.0.1:5500',
+     reuseExistingServer: !process.env.CI,
+     stdout: 'pipe', // Re-add stdout pipe for python server

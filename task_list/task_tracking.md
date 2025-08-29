@@ -1,4 +1,3 @@
-
 # Draw Data Format
 
 **For the correct CSV format, see this section.**
@@ -157,25 +156,6 @@
 ---
 
 
-## 🆕 NEW/CLARIFIED TASKS
-
-### 13. UI/UX Polish & Feedback
-
-- **Description:** Improve button states, progress indicators, and error messages.
-- **Clarification:** Button text, cancel button, and prediction display need refinement.
-- **Status:** Major UI/UX bug (ML predictions/recommendations not displaying) resolved on 2025-08-26. Root cause: stray reference to undefined variable in `executeCompleteAnalysis` blocked UI update. Fix: removed stray reference, confirmed UI now updates and displays ML results and recommendations as expected.
-- **Date Last Modified:** 2025-08-26
-- **Percent Completed:** 90%
-
-### 14. Automated Testing & Integration Checks
-
-- **Description:** Use `test-ml-integration.js` for automated regression tests.
-- **Clarification:** Integrate with CI or run as part of dev workflow.
-- **Date Last Modified:** 2025-08-26
-- **Percent Completed:** 10%
-
----
-
 ## ✅ RECENTLY COMPLETED
 
 ### UI/ML Prediction Display Bug
@@ -184,4 +164,28 @@
 - **Root Cause:** ReferenceError in `executeCompleteAnalysis` (stray `error` variable) was silently caught, blocking UI update.
 - **Resolution:** Removed stray reference, confirmed UI now works and displays results.
 - **Date Fixed:** 2025-08-26
+
+### Playwright E2E Test Setup
+- **Description:** Playwright installed, browser binaries installed, and E2E test suite created for core UI and CSV upload flow.
+- **Status:** Initial tests for title, button state, and results display are passing in Brave, Chrome, and Firefox.
+- **Date Fixed:** 2025-08-29
+
+### Modularization & Patch Integration
+- **Description:** Duplicates and legacy code removed from app.js, Playwright config, and E2E test files. All recent diffs reviewed and applied.
+- **Status:** Codebase is clean, modular, and ready for further feature work and testing.
+- **Date Fixed:** 2025-08-29
+
+## 🆕 NEW/CLARIFIED TASKS
+
+### 15. Multi-Browser E2E Support
+- **Description:** Playwright config now supports Brave, Chrome, and Firefox. User can select browser for E2E runs.
+- **Status:** Config and docs updated; tested locally.
+- **Date Last Modified:** 2025-08-29
+- **Percent Completed:** 100%
+
+### 16. Playwright HTML Report Review
+- **Description:** Ensure Playwright HTML report is generated and accessible after test runs.
+- **Status:** Confirmed available; user can run `npx playwright show-report` after tests.
+- **Date Last Modified:** 2025-08-29
+- **Percent Completed:** 100%
 

@@ -1,0 +1,129 @@
+--- a/js/app.js
++++ b/js/app.js
+@@ -7,7 +7,7 @@
+ import { setAnalyzeBtnState, showError, showProgress, updateProgress, hideProgress, showCancelButton, hideCancelButton, elements, initUIElements, displayMLResults, displayRecommendations, displayBacktestResults } from './ui.js';
+ 
+ // ==================== EVENT LISTENERS ==================== //
+-document.addEventListener('DOMContentLoaded', () => {
++document.addEventListener('DOMContentLoaded', () => {
+   initUIElements();
+   initEventListeners();
+   });
+@@ -169,59 +169,7 @@
+   // Removed unused function displayResults
+ 
+ function generateRecommendations(energyData, mlPrediction) {
+-  // Use white balls only for recommendations
++  // Use white balls only for recommendations
+   const topEnergy = [...energyData].sort((a, b) => b.energy - a.energy).slice(0, 5);
+   const mlNumbers = (mlPrediction.whiteBalls || []).slice(0, 5);
+   return {
+     highConfidence: findOverlap(topEnergy, mlNumbers),
+     energyBased: topEnergy.map(n => n.number),
+     mlBased: mlNumbers,
+     powerball: mlPrediction.powerball,
+     summary: `Based on ${state.draws.length} historical draws`
+   };
+ }
+   function findOverlap(energyArray, mlArray) {
+     const energyNumbers = energyArray.map(item => item.number);
+     return mlArray.filter(num => energyNumbers.includes(num));
+   }
+ 
+-  function displayMLResults(mlPrediction, container) {
+-  if (DEBUG) console.log('displayMLResults called', mlPrediction, container);
+-  console.log('[Debug] displayMLResults: mlPrediction =', mlPrediction);
+-  console.log('[Debug] displayMLResults: container =', container);
+-    // Show white balls and powerball separately
+-    const whiteBalls = (mlPrediction.whiteBalls || []).map(num => num.toString().padStart(2, '0')).join(' ');
+-    const powerball = mlPrediction.powerball ? mlPrediction.powerball.toString().padStart(2, '0') : '';
+-    container.innerHTML = `
+-      <div class="ml-prediction">
+-        <div class="confidence">Confidence: ${(mlPrediction.confidence * 100).toFixed(1)}%</div>
+-        <div class="ml-numbers"><strong>White Balls:</strong> ${whiteBalls}</div>
+-        <div class="ml-numbers"><strong>Powerball:</strong> <span class="powerball-number">${powerball}</span></div>
+-        <div class="model-info">Model: ${mlPrediction.model}</div>
+-        ${mlPrediction.warning ? `<div class="warning">${mlPrediction.warning}</div>` : ''}
+-      </div>
+-    `;
+-    // Also show in dedicated powerball section if present
+-    if (elements.powerballResults) {
+-      elements.powerballResults.innerHTML = `
+-        <div class="powerball-section">
+-          <h3>🔴 Powerball Prediction</h3>
+-          <div class="powerball-prediction">
+-            <span class="powerball-number">${powerball}</span>
+-          </div>
+-          <div class="confidence">Confidence: ${(mlPrediction.confidence * 100).toFixed(1)}%</div>
+-          <div class="model-info">Model: ${mlPrediction.model}</div>
+-        </div>
+-      `;
+-    }
+-  }
+-
+-  function displayBacktestResults(results) {
+-    if (!results.available) {
+-      elements.backtestResults.innerHTML = `<p class="no-backtest">${results.message}</p>`;
+-      return;
+-    }
+-
+-    const metrics = results.performanceMetrics;
+-    elements.backtestResults.innerHTML = `
+-      <div class="backtest-header">
+-        <h3>📊 Backtesting Results (${results.totalTests} tests)</h3>
+-        <p>Method: ${results.method.toUpperCase()} | Draws Tested: ${results.totalDrawsTested} | Time: ${results.analysisTime || 'N/A'} seconds</p>
+-      </div>
+-      
+-      <div class="metrics-grid">
+-        <div class="metric-card">
+-          <h4>Hit Rate</h4>
+-          <div class="metric-value">${(metrics.hitRate * 100).toFixed(1)}%</div>
+-          <p>Percentage of tests with ≥3 correct numbers</p>
+-        </div>
+-        
+-        <div class="metric-card">
+-          <h4>Precision</h4>
+-          <div class="metric-value">${(metrics.precision * 100).toFixed(1)}%</div>
+-          <p>Accuracy of individual number predictions</p>
+-        </div>
+-        
+-        <div class="metric-card">
+-          <h4>ROI</h4>
+-          <div class="metric-value ${metrics.roi >= 0 ? 'positive' : 'negative'}">${metrics.roi >= 0 ? '+' : ''}${metrics.roi.toFixed(1)}%</div>
+-          <p>Simulated return on investment</p>
+-        </div>
+-        
+-        <div class="metric-card">
+-          <h4>Hit Distribution</h4>
+-          <div class="hit-distribution">
+-            ${Object.entries(metrics.hitDistribution).map(([hitCount, count]) => `
+-              <div class="hit-item">
+-                <span class="hit-count">${hitCount} numbers:</span>
+-                <span class="hit-value">${count} hits</span>
+-              </div>
+-            `).join('')}
+-          </div>
+-        </div>
+-      </div>
+-      
+-      <div class="financial-summary">
+-        <h4>Financial Simulation</h4>
+-        <p>Total Spent: $${metrics.totalSpent} | Total Won: $${metrics.totalWon}</p>
+-        <p>Net: $${(metrics.totalWon - metrics.totalSpent).toFixed(2)}</p>
+-      </div>
+-    `;
+-  }
+-
+-  // ==================== ERROR FILTERING ==================== //
+-  const originalError = console.error;
+-  console.error = function() {
+-    const errorMsg = String(arguments[0] || '');
+-    const isExternal = !errorMsg.includes('app.js') && 
+-                       !errorMsg.includes('utils.js') &&
+-                       !errorMsg.includes('lottery');
+-    if (isExternal && !errorMsg.includes('PapaParse')) return;
+-    originalError.apply(console, arguments);
+-  };
+-
+-  // Expose runAnalysis to global scope for event handlers
+-  window.runAnalysis = runAnalysis;

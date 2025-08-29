@@ -195,7 +195,7 @@ export function displayBacktestResults(results, elements) {
  */
 
 export function setAnalyzeBtnState(enabled) {
-  const btn = document.getElementById('analyze-btn');
+  const btn = document.getElementById('analyzeBtn');
   if (btn) {
     btn.disabled = !enabled;
     btn.classList.toggle('ready', enabled);
