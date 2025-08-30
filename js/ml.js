@@ -359,7 +359,8 @@ if (typeof window !== 'undefined') {
       getStatus: () => ({ status: 'error', message: 'Initialization failed' })
     };
   }
-} else {
+
+} else if (typeof self !== 'undefined') {
   // In worker context, export the class for importScripts
   self.LotteryML = LotteryML;
 }

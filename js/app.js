@@ -2,19 +2,12 @@
 // Version: 2.4.2 | Last Updated: 2025-08-21 02:45 PM EST
 
 import {
-    setAnalyzeBtnState,
-    showError,
-    showProgress,
-    updateProgress,
-    hideProgress,
     elements,
     initUIElements,
-    displayMLResults,
-    displayRecommendations,
-    displayBacktestResults
 } from './ui.js';
+import state from './state.js';
 
-import { calculateEnergy, displayEnergyResults } from './utils.js';
+import { calculateEnergy } from './utils.js';
 
 // ==================== CONFIG & STATE ==================== //
 const CONFIG = {
@@ -31,7 +24,9 @@ const CONFIG = {
     }
 };
 
-const state = {
+
+// App state for non-pubsub values
+const appState = {
     draws: [],
     currentMethod: 'hybrid',
     activeWorkers: new Map(),
@@ -40,41 +35,38 @@ const state = {
 
 // ==================== CORE ANALYSIS ==================== //
 
-async function runAnalysis() {
-    if (state.draws.length === 0) {
-        showError('No Data', 'Please upload a CSV file with lottery data first.');
+export async function runAnalysis() {
+
+    if (appState.draws.length === 0) {
+        state.publish('error', { title: 'No Data', message: 'Please upload a CSV file with lottery data first.' });
         return;
     }
 
-    setAnalyzeBtnState(false);
-    showProgress('Starting analysis...');
+    state.publish('analyzeBtnState', false);
+    state.publish('progress', 'Starting analysis...');
 
     try {
         // 1. Energy Analysis
-        updateProgress('Calculating energy signatures...');
-        // Assuming the CSV has a 'White Balls' column which is an array of numbers
-        const allNumbers = state.draws.flatMap(d => d.whiteBalls);
+        state.publish('progress', 'Calculating energy signatures...');
+    const allNumbers = appState.draws.flatMap(d => d.whiteBalls);
         const energyData = calculateEnergy(allNumbers, CONFIG.energyWeights);
-        displayEnergyResults(energyData, elements.energyResults);
+        state.publish('energyResults', energyData);
 
         // 2. ML Prediction
-        updateProgress('Running ML predictions...');
-        // In a real app, getMLPrediction would be defined here or imported
-        // For now, we'll use a fallback prediction for demonstration
-        const mlPrediction = getFrequencyFallback(state.draws);
-        displayMLResults(mlPrediction, elements.mlResults, elements);
-
+        state.publish('progress', 'Running ML predictions...');
+    const mlPrediction = getFrequencyFallback(appState.draws);
+        state.publish('mlResults', mlPrediction);
 
         // 3. Generate and Display Recommendations
-        updateProgress('Generating recommendations...');
-        const recommendations = generateRecommendations(energyData, mlPrediction);
-        displayRecommendations(recommendations, elements);
+        state.publish('progress', 'Generating recommendations...');
+    const recommendations = generateRecommendations(energyData, mlPrediction);
+        state.publish('recommendations', recommendations);
 
     } catch (error) {
-        showError('Analysis Failed', error);
+        state.publish('error', { title: 'Analysis Failed', message: error });
     } finally {
-        hideProgress();
-        setAnalyzeBtnState(true);
+        state.publish('hideProgress');
+        state.publish('analyzeBtnState', true);
     }
 }
 
@@ -90,7 +82,7 @@ function generateRecommendations(energyData, mlPrediction) {
         energyBased: energyNumbers,
         mlBased: mlNumbers,
         powerball: mlPrediction.powerball,
-        summary: `Based on ${state.draws.length} historical draws`
+    summary: `Based on ${appState.draws.length} historical draws`
     };
 }
 
@@ -138,14 +130,15 @@ function initEventListeners() {
     elements.uploadInput.addEventListener('change', handleFileUpload);
 }
 
-async function handleFileUpload(event) {
+export async function handleFileUpload(event) {
     const file = event.target.files[0];
+
     if (!file) {
-        setAnalyzeBtnState(false);
+        state.publish('analyzeBtnState', false);
         return;
     }
 
-    showProgress('Parsing CSV file...');
+    state.publish('progress', 'Parsing CSV file...');
     
     // Use PapaParse which is loaded in index.html
     Papa.parse(file, {
@@ -153,26 +146,35 @@ async function handleFileUpload(event) {
         dynamicTyping: true,
         skipEmptyLines: true,
         complete: (results) => {
-            hideProgress();
+            state.publish('hideProgress');
             if (results.errors.length) {
-                showError('CSV Parsing Error', results.errors[0].message);
-                setAnalyzeBtnState(false);
+                state.publish('error', { title: 'CSV Parsing Error', message: results.errors[0].message });
+                state.publish('analyzeBtnState', false);
                 return;
             }
             // Assuming 'White Balls' column exists and is a string like "1,2,3,4,5"
-            state.draws = results.data.map(row => ({
-                ...row,
-                whiteBalls: typeof row['White Balls'] === 'string' 
-                    ? row['White Balls'].split(',').map(Number) 
-                    : (Array.isArray(row['White Balls']) ? row['White Balls'] : [])
-            }));
-            console.log(`Parsed ${state.draws.length} draws.`);
-            setAnalyzeBtnState(true);
+            appState.draws = results.data.map(row => {
+                let whiteBalls;
+                if (typeof row['White Balls'] === 'string') {
+                    whiteBalls = row['White Balls'].split(',').map(Number);
+                } else if (Array.isArray(row['White Balls'])) {
+                    whiteBalls = row['White Balls'];
+                } else {
+                    whiteBalls = [];
+                }
+                return {
+                    ...row,
+                    whiteBalls
+                };
+            });
+            console.log(`Parsed ${appState.draws.length} draws.`);
+            state.publish('drawsUpdated', appState.draws);
+            state.publish('analyzeBtnState', true);
         },
         error: (err) => {
-            hideProgress();
-            showError('CSV Parsing Error', err);
-            setAnalyzeBtnState(false);
+            state.publish('hideProgress');
+            state.publish('error', { title: 'CSV Parsing Error', message: err });
+            state.publish('analyzeBtnState', false);
         }
     });
 }

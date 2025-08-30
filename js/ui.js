@@ -1,3 +1,9 @@
+// Listen for drawsUpdated event (future: update UI, enable analysis, show draw count, etc.)
+state.subscribe('drawsUpdated', (draws) => {
+  // Example: log or update UI with draw count
+  console.log(`[PubSub] Draws updated: ${draws.length} draws loaded.`);
+  // You can add UI updates here as needed
+});
 // Centralized DOM elements object
 export const elements = {
   methodSelector: document.createElement('select'),
@@ -55,8 +61,17 @@ export function initUIElements(CONFIG, state) {
   elements.methodSelector.value = state.currentMethod;
   // ...add more UI initialization as needed...
 }
-// ui.js
-// Handles UI rendering, DOM manipulation, and user feedback for lottery-analysis-pro
+
+import state from './state.js';
+
+// Subscribe to pub/sub events for analysis workflow
+state.subscribe('progress', (msg) => showProgress(msg));
+state.subscribe('hideProgress', () => hideProgress());
+state.subscribe('analyzeBtnState', (enabled) => setAnalyzeBtnState(enabled));
+state.subscribe('error', ({ title, message }) => showError(title, message));
+state.subscribe('energyResults', (energyData) => displayEnergyResults(energyData, elements.energyResults));
+state.subscribe('mlResults', (mlPrediction) => displayMLResults(mlPrediction, elements.mlResults, elements));
+state.subscribe('recommendations', (recommendations) => displayRecommendations(recommendations, elements));
 
 export function displayMLResults(mlPrediction, container, elements) {
   if (typeof DEBUG !== 'undefined' && DEBUG) console.log('displayMLResults called', mlPrediction, container);
