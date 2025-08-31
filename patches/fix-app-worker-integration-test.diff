@@ -1,0 +1,81 @@
+*** Begin Patch
+*** Update File: c:\Users\mikeb\lottery-analysis-pro\tests\app-worker-integration.test.js
+@@
+-import state from '../js/state.js';
+-import * as app from '../js/app.js';
++import state from '../js/state.js';
++import * as app from '../js/app.js';
++import workerWrapper from '../js/worker-wrapper.js';
+@@
+-  test('runAnalysis publishes mlResults after ML worker result', async () => {
+-    // Mock energy calculation
+-    global.calculateEnergy = () => [{ number: 1, energy: 1 }];
+-    // Provide draws
+-    state.draws = [{ whiteBalls: [1,2,3,4,5] }];
+-    const mlResults = await new Promise((resolve) => {
+-      state.subscribe('mlResults', (data) => {
+-        resolve(data);
+-      });
+-      app.runAnalysis();
+-    });
+-    expect(mlResults.whiteBalls).toEqual([1,2,3,4,5]);
+-    expect(mlResults.powerball).toBe(1);
+-  });
++  test('runAnalysis publishes mlResults after ML worker result', async () => {
++    // Mock energy calculation
++    global.calculateEnergy = () => [{ number: 1, energy: 1 }];
++    // Provide draws
++    state.draws = [{ whiteBalls: [1,2,3,4,5] }];
++    const mlResults = await new Promise((resolve) => {
++      state.subscribe('mlResults', (data) => {
++        resolve(data);
++      });
++      app.runAnalysis();
++      // Manually trigger the worker mock's onmessage
++      const mlWorker = workerWrapper.getWorker('ml');
++      setTimeout(() => {
++        mlWorker.onmessage &&
++          mlWorker.onmessage({
++            data: {
++              type: 'result',
++              data: { prediction: { whiteBalls: [1,2,3,4,5], powerball: 1 } }
++            }
++          });
++      }, 10);
++    });
++    expect(mlResults.whiteBalls).toEqual([1,2,3,4,5]);
++    expect(mlResults.powerball).toBe(1);
++  });
+@@
+-  test('runBacktest publishes backtestResults after worker result', async () => {
+-    state.draws = [{ whiteBalls: [1,2,3,4,5] }];
+-    const results = await new Promise((resolve) => {
+-      state.subscribe('backtestResults', (data) => {
+-        resolve(data);
+-      });
+-      app.runBacktest();
+-    });
+-    expect(results).toEqual([42]);
+-  });
++  test('runBacktest publishes backtestResults after worker result', async () => {
++    state.draws = [{ whiteBalls: [1,2,3,4,5] }];
++    const results = await new Promise((resolve) => {
++      state.subscribe('backtestResults', (data) => {
++        resolve(data);
++      });
++      app.runBacktest();
++      // Manually trigger the worker mock's onmessage
++      const backtestWorker = workerWrapper.getWorker('backtest');
++      setTimeout(() => {
++        backtestWorker.onmessage &&
++          backtestWorker.onmessage({
++            data: {
++              type: 'result',
++              data: { results: [42] }
++            }
++          });
++      }, 10);
++    });
++    expect(results).toEqual([42]);
++  });
+*** End Patch
