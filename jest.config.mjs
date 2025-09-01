@@ -5,4 +5,5 @@ export default {
   },
   moduleNameMapper: {},
   roots: ['<rootDir>/tests'],
+  setupFiles: ['<rootDir>/jest.setup.js'],
 };

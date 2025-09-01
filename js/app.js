@@ -1,3 +1,41 @@
+// ==================== BACKTEST INTEGRATION ==================== //
+
+export async function runBacktest(settings = CONFIG.backtestSettings) {
+    if (state.draws.length === 0) {
+        state.publish('error', { title: 'No Data', message: 'Please upload a CSV file with lottery data first.' });
+        return;
+    }
+
+    state.publish('progress', 'Starting backtest...');
+
+    try {
+        const resultPromise = new Promise((resolve, reject) => {
+            let unsubResult, unsubError;
+            const cleanup = () => { unsubResult(); unsubError(); };
+
+            const handler = (data) => {
+                cleanup();
+                resolve(data.results || data);
+            };
+            const errorHandler = (err) => {
+                cleanup();
+                reject(err);
+            };
+
+            unsubResult = state.subscribe('backtest:result', handler);
+            unsubError = state.subscribe('backtest:error', errorHandler);
+        });
+
+        state.publish('backtest:run', { draws: state.draws, settings });
+        const results = await resultPromise;
+        state.publish('backtestResults', results);
+    } catch (error) {
+        state.publish('error', { title: 'Backtest Failed', message: error.message || error });
+    } finally {
+        state.publish('hideProgress');
+    }
+}
+
 // LOTTERY ANALYSIS PRO - CORE APPLICATION
 // Version: 2.4.2 | Last Updated: 2025-08-21 02:45 PM EST
 
@@ -8,6 +46,7 @@ import {
 import state from './state.js';
 
 import { calculateEnergy } from './utils.js';
+import workerWrapper from './worker-wrapper.js';
 
 // ==================== CONFIG & STATE ==================== //
 const CONFIG = {
@@ -24,10 +63,11 @@ const CONFIG = {
     }
 };
 
+// Initialize state properties
+state.draws = [];
 
 // App state for non-pubsub values
 const appState = {
-    draws: [],
     currentMethod: 'hybrid',
     activeWorkers: new Map(),
 };
@@ -36,8 +76,7 @@ const appState = {
 // ==================== CORE ANALYSIS ==================== //
 
 export async function runAnalysis() {
-
-    if (appState.draws.length === 0) {
+    if (state.draws.length === 0) {
         state.publish('error', { title: 'No Data', message: 'Please upload a CSV file with lottery data first.' });
         return;
     }
@@ -46,24 +85,39 @@ export async function runAnalysis() {
     state.publish('progress', 'Starting analysis...');
 
     try {
-        // 1. Energy Analysis
         state.publish('progress', 'Calculating energy signatures...');
-    const allNumbers = appState.draws.flatMap(d => d.whiteBalls);
+        const allNumbers = state.draws.flatMap(d => d.whiteBalls);
         const energyData = calculateEnergy(allNumbers, CONFIG.energyWeights);
         state.publish('energyResults', energyData);
 
-        // 2. ML Prediction
         state.publish('progress', 'Running ML predictions...');
-    const mlPrediction = getFrequencyFallback(appState.draws);
+        const mlResultPromise = new Promise((resolve, reject) => {
+            let unsubResult, unsubError;
+            const cleanup = () => { unsubResult(); unsubError(); };
+
+            const handler = (mlPrediction) => {
+                cleanup();
+                resolve(mlPrediction.prediction || mlPrediction);
+            };
+            const errorHandler = (err) => {
+                cleanup();
+                reject(err);
+            };
+
+            unsubResult = state.subscribe('ml:result', handler);
+            unsubError = state.subscribe('ml:error', errorHandler);
+        });
+
+        state.publish('ml:predict', { draws: state.draws });
+        const mlPrediction = await mlResultPromise;
         state.publish('mlResults', mlPrediction);
 
-        // 3. Generate and Display Recommendations
         state.publish('progress', 'Generating recommendations...');
-    const recommendations = generateRecommendations(energyData, mlPrediction);
+        const recommendations = generateRecommendations(energyData, mlPrediction);
         state.publish('recommendations', recommendations);
 
     } catch (error) {
-        state.publish('error', { title: 'Analysis Failed', message: error });
+        state.publish('error', { title: 'Analysis Failed', message: error.message || error });
     } finally {
         state.publish('hideProgress');
         state.publish('analyzeBtnState', true);
@@ -82,11 +136,10 @@ function generateRecommendations(energyData, mlPrediction) {
         energyBased: energyNumbers,
         mlBased: mlNumbers,
         powerball: mlPrediction.powerball,
-    summary: `Based on ${appState.draws.length} historical draws`
+        summary: `Based on ${state.draws.length} historical draws`
     };
 }
 
-// This is a fallback since the original getMLPrediction is in a worker
 function getFrequencyFallback(draws) {
     const whiteFreq = new Array(70).fill(0);
     draws.forEach(draw => {
@@ -105,42 +158,32 @@ function getFrequencyFallback(draws) {
 
     return {
         whiteBalls: predictedWhiteBalls,
-        powerball: Math.floor(Math.random() * 26) + 1, // Random powerball
+        powerball: Math.floor(Math.random() * 26) + 1,
         confidence: 0.5,
         model: 'fallback_frequency'
     };
 }
 
-
-// ==================== EVENT LISTENERS ==================== //
-
 function initEventListeners() {
     const controlPanel = document.querySelector('.control-panel');
-
     if (controlPanel) {
         controlPanel.addEventListener('click', (event) => {
-            if (event.target.id === 'analyzeBtn') {
-                runAnalysis();
-            }
+            if (event.target.id === 'analyzeBtn') runAnalysis();
         });
     } else {
         console.error('Control panel not found for event delegation.');
     }
-
     elements.uploadInput.addEventListener('change', handleFileUpload);
 }
 
 export async function handleFileUpload(event) {
     const file = event.target.files[0];
-
     if (!file) {
         state.publish('analyzeBtnState', false);
         return;
     }
 
     state.publish('progress', 'Parsing CSV file...');
-    
-    // Use PapaParse which is loaded in index.html
     Papa.parse(file, {
         header: true,
         dynamicTyping: true,
@@ -152,8 +195,7 @@ export async function handleFileUpload(event) {
                 state.publish('analyzeBtnState', false);
                 return;
             }
-            // Assuming 'White Balls' column exists and is a string like "1,2,3,4,5"
-            appState.draws = results.data.map(row => {
+            state.draws = results.data.map(row => {
                 let whiteBalls;
                 if (typeof row['White Balls'] === 'string') {
                     whiteBalls = row['White Balls'].split(',').map(Number);
@@ -162,13 +204,10 @@ export async function handleFileUpload(event) {
                 } else {
                     whiteBalls = [];
                 }
-                return {
-                    ...row,
-                    whiteBalls
-                };
+                return { ...row, whiteBalls };
             });
-            console.log(`Parsed ${appState.draws.length} draws.`);
-            state.publish('drawsUpdated', appState.draws);
+            console.log(`Parsed ${state.draws.length} draws.`);
+            state.publish('drawsUpdated', state.draws);
             state.publish('analyzeBtnState', true);
         },
         error: (err) => {
