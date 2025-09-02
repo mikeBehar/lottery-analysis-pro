@@ -4,13 +4,12 @@
  * Handles comprehensive backtesting in background thread
  */
 
-// Import required utilities
-importScripts('../utils.js');
+import * as utils from '../utils.js';
 
 let shouldStop = false;
 
 self.onmessage = function(e) {
-  const { draws, decayRate, method, config } = e.data;
+  const { draws, decayRate, method, config } = e.data.data;
   
   try {
     const results = runBacktestAnalysis(draws, decayRate, method, config);
@@ -72,7 +71,7 @@ function runBacktestAnalysis(draws, decayRate, method, config) {
       const historicalData = [...trainingData, ...testData.slice(0, j + 1)];
       const prediction = getPredictionForBacktest(historicalData, decayRate, method);
       
-      const matchedNumbers = nextDraw.numbers.filter(num => prediction.numbers.includes(num));
+      const matchedNumbers = nextDraw.whiteBalls.filter(num => prediction.numbers.includes(num));
       const hitCount = matchedNumbers.length;
       
       if (hitCount >= 3) {
@@ -82,7 +81,7 @@ function runBacktestAnalysis(draws, decayRate, method, config) {
       results.simulations.push({
         drawDate: nextDraw.date,
         predicted: prediction.numbers,
-        actual: nextDraw.numbers,
+        actual: nextDraw.whiteBalls,
         matched: matchedNumbers,
         hitCount: hitCount,
         confidence: prediction.confidence

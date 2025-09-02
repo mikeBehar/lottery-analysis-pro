@@ -1,3 +1,9 @@
+import { displayEnergyResults as displayEnergyResultsFromUtils } from './utils.js';
+
+export function displayEnergyResults(energyData, container) {
+  displayEnergyResultsFromUtils(energyData, container);
+}
+
 // Listen for drawsUpdated event (future: update UI, enable analysis, show draw count, etc.)
 state.subscribe('drawsUpdated', (draws) => {
   // Example: log or update UI with draw count
@@ -5,30 +11,87 @@ state.subscribe('drawsUpdated', (draws) => {
   // You can add UI updates here as needed
 });
 // Centralized DOM elements object
-export const elements = {
-  methodSelector: document.createElement('select'),
-  temporalDecaySelector: document.createElement('select'),
-  analyzeBtn: document.getElementById('analyzeBtn'),
-  uploadInput: document.getElementById('csvUpload'),
-  progressIndicator: document.createElement('div'),
-  backtestResults: document.createElement('div'),
-  recommendations: document.getElementById('recommendations'),
-  energyResults: document.getElementById('energy-results') || (() => {
-    const div = document.createElement('div');
-    div.id = 'energy-results';
-    div.className = 'energy-panel';
-    document.body.appendChild(div);
-    return div;
-  })(),
-  mlResults: document.getElementById('ml-results') || (() => {
-    const div = document.createElement('div');
-    div.id = 'ml-results';
-    div.className = 'ml-panel';
-    document.body.appendChild(div);
-    return div;
-  })(),
-  // Add more as needed for your UI
-};
+export const elements = (() => {
+  const panelsContainer = document.querySelector('.panels') || document.body;
+  const makePanel = (id, className) => {
+    let el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement('div');
+      el.id = id;
+      el.className = className;
+      panelsContainer.appendChild(el);
+    }
+    return el;
+  };
+  return {
+    methodSelector: document.createElement('select'),
+    temporalDecaySelector: document.createElement('select'),
+    analyzeBtn: document.getElementById('analyzeBtn'),
+    uploadInput: document.getElementById('csvUpload'),
+    progressIndicator: document.createElement('div'),
+    backtestResults: document.createElement('div'),
+    recommendations: document.getElementById('recommendations'),
+    energyResults: document.getElementById('energy-results') || makePanel('energy-results', 'energy-panel'),
+    mlResults: document.getElementById('ml-results') || makePanel('ml-results', 'ml-panel'),
+    // Analytics panels
+    hotColdPanel: makePanel('hot-cold-panel', 'analytics-panel'),
+    overduePanel: makePanel('overdue-panel', 'analytics-panel'),
+    frequencyPanel: makePanel('frequency-panel', 'analytics-panel'),
+    pairsPanel: makePanel('pairs-panel', 'analytics-panel'),
+    gapsPanel: makePanel('gaps-panel', 'analytics-panel'),
+    // ...existing code...
+  };
+})();
+
+// --- Analytics event subscriptions ---
+state.subscribe('analytics:hotCold', (hotCold) => displayHotCold(hotCold, elements.hotColdPanel));
+state.subscribe('analytics:overdue', (overdue) => displayOverdue(overdue, elements.overduePanel));
+state.subscribe('analytics:frequency', (frequency) => displayFrequency(frequency, elements.frequencyPanel));
+state.subscribe('analytics:pairs', (pairs) => displayPairs(pairs, elements.pairsPanel));
+state.subscribe('analytics:gaps', (gaps) => displayGaps(gaps, elements.gapsPanel));
+
+// --- Analytics display functions ---
+export function displayHotCold(hotCold, container) {
+  container.innerHTML = `
+    <h3>🔥 Hot & Cold Numbers</h3>
+    <div><strong>Hot:</strong> ${hotCold.hot.map(n => `<span class="number hot">${n}</span>`).join(' ')}</div>
+    <div><strong>Cold:</strong> ${hotCold.cold.map(n => `<span class="number cold">${n}</span>`).join(' ')}</div>
+  `;
+}
+
+export function displayOverdue(overdue, container) {
+  container.innerHTML = `
+    <h3>⏳ Overdue Numbers</h3>
+    <div>${overdue.map(n => `<span class="number overdue">${n}</span>`).join(' ')}</div>
+  `;
+}
+
+export function displayFrequency(frequency, container) {
+  container.innerHTML = `
+    <h3>📊 Number Frequency</h3>
+    <div class="frequency-grid">
+      ${frequency.whiteBalls.map((count, idx) => `<span class="number freq">${idx + 1}: ${count}</span>`).join(' ')}
+    </div>
+  `;
+}
+
+export function displayPairs(pairs, container) {
+  // Show top 10 pairs
+  const sorted = Object.entries(pairs).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  container.innerHTML = `
+    <h3>🔗 Common Number Pairs</h3>
+    <ul>${sorted.map(([pair, count]) => `<li>${pair}: ${count}</li>`).join('')}</ul>
+  `;
+}
+
+export function displayGaps(gaps, container) {
+  // Show all gaps sorted by frequency
+  const sorted = Object.entries(gaps).sort((a, b) => b[1] - a[1]);
+  container.innerHTML = `
+    <h3>📏 Gap Analysis</h3>
+    <ul>${sorted.map(([gap, count]) => `<li>Gap ${gap}: ${count} times</li>`).join('')}</ul>
+  `;
+}
 
 /**
  * Initialize UI elements and dynamic DOM structure.

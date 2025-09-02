@@ -45,7 +45,14 @@ import {
 } from './ui.js';
 import state from './state.js';
 
-import { calculateEnergy } from './utils.js';
+import { calculateEnergy, displayEnergyResults } from './utils.js';
+import {
+    calculateFrequency,
+    findCommonPairs,
+    gapAnalysis,
+    getHotAndColdNumbers,
+    getOverdueNumbers
+} from './analysis.js';
 import workerWrapper from './worker-wrapper.js';
 
 // ==================== CONFIG & STATE ==================== //
@@ -85,9 +92,25 @@ export async function runAnalysis() {
     state.publish('progress', 'Starting analysis...');
 
     try {
+        // Core analytics
+        const maxNumber = 69; // TODO: make dynamic if needed
+        const frequency = calculateFrequency(state.draws, maxNumber);
+        const pairs = findCommonPairs(state.draws);
+        const gaps = gapAnalysis(state.draws);
+        const hotCold = getHotAndColdNumbers(state.draws, maxNumber);
+        const overdue = getOverdueNumbers(state.draws, maxNumber);
+
+        state.publish('analytics:frequency', frequency);
+        state.publish('analytics:pairs', pairs);
+        state.publish('analytics:gaps', gaps);
+        state.publish('analytics:hotCold', hotCold);
+        state.publish('analytics:overdue', overdue);
+        
         state.publish('progress', 'Calculating energy signatures...');
-        const allNumbers = state.draws.flatMap(d => d.whiteBalls);
-        const energyData = calculateEnergy(allNumbers, CONFIG.energyWeights);
+    const allNumbers = [...new Set(state.draws.flatMap(d => d.whiteBalls))];
+    console.log('allNumbers for energy:', allNumbers);
+    const energyData = calculateEnergy(allNumbers, CONFIG.energyWeights);
+    console.log('Energy Data Sample:', energyData.slice(0, 3));
         state.publish('energyResults', energyData);
 
         state.publish('progress', 'Running ML predictions...');
@@ -125,12 +148,17 @@ export async function runAnalysis() {
 }
 
 function generateRecommendations(energyData, mlPrediction) {
-    const topEnergy = [...energyData].sort((a, b) => b.energy - a.energy).slice(0, 5);
+    // Deduplicate by number
+    const uniqueByNumber = {};
+    energyData.forEach(item => { uniqueByNumber[item.number] = item; });
+    const deduped = Object.values(uniqueByNumber);
+    const topEnergy = [...deduped].sort((a, b) => b.energy - a.energy).slice(0, 5);
     const mlNumbers = (mlPrediction.whiteBalls || []).slice(0, 5);
 
     const energyNumbers = topEnergy.map(item => item.number);
     const overlap = mlNumbers.filter(num => energyNumbers.includes(num));
-
+    console.log('[Recommendations] Top energy numbers (deduped):', energyNumbers);
+    console.log('[Recommendations] ML numbers:', mlNumbers);
     return {
         highConfidence: overlap,
         energyBased: energyNumbers,
@@ -185,8 +213,8 @@ export async function handleFileUpload(event) {
 
     state.publish('progress', 'Parsing CSV file...');
     Papa.parse(file, {
-        header: true,
-        dynamicTyping: true,
+        header: false,
+        dynamicTyping: false,
         skipEmptyLines: true,
         complete: (results) => {
             state.publish('hideProgress');
@@ -195,18 +223,18 @@ export async function handleFileUpload(event) {
                 state.publish('analyzeBtnState', false);
                 return;
             }
-            state.draws = results.data.map(row => {
-                let whiteBalls;
-                if (typeof row['White Balls'] === 'string') {
-                    whiteBalls = row['White Balls'].split(',').map(Number);
-                } else if (Array.isArray(row['White Balls'])) {
-                    whiteBalls = row['White Balls'];
-                } else {
-                    whiteBalls = [];
-                }
-                return { ...row, whiteBalls };
+
+            // Skip the first two header rows
+            const dataRows = results.data.slice(2);
+
+            state.draws = dataRows.map(row => {
+                const whiteBalls = [row[1], row[2], row[3], row[4], row[5]].map(Number);
+                const powerball = Number(row[6]);
+                const date = new Date(row[0]);
+                return { whiteBalls, powerball, date };
             });
             console.log(`Parsed ${state.draws.length} draws.`);
+            console.log('First 5 draws:', state.draws.slice(0, 5));
             state.publish('drawsUpdated', state.draws);
             state.publish('analyzeBtnState', true);
         },

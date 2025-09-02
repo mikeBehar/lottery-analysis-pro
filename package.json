@@ -7,7 +7,8 @@
   "scripts": {
     "test": "jest",
     "lint": "eslint js/*.js",
-    "build": "esbuild js/app.js --bundle --outfile=dist/bundle.js --sourcemap",
+    "build": "npm run build:workers && esbuild js/app.js --bundle --outfile=dist/bundle.js --sourcemap",
+    "build:workers": "esbuild js/workers/ml-worker.js --bundle --outfile=dist/ml-worker.bundle.js && esbuild js/workers/backtest-worker.js --bundle --outfile=dist/backtest-worker.bundle.js",
     "pretest:e2e": "npm run build",
     "test:e2e": "playwright test",
     "posttest:e2e": "npx playwright show-report"
@@ -27,6 +28,7 @@
     "@babel/core": "^7.28.3",
     "@babel/preset-env": "^7.28.3",
     "@playwright/test": "^1.55.0",
+    "@tensorflow/tfjs": "^4.22.0",
     "esbuild": "^0.25.9",
     "eslint": "^9.33.0",
     "jest": "^30.1.1",

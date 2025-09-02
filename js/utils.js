@@ -58,9 +58,13 @@ function displayEnergyResults(energyData, container) {
     return;
   }
 
-  const sorted = [...energyData].sort((a, b) => b.energy - a.energy);
+  // Deduplicate by number
+  const uniqueByNumber = {};
+  energyData.forEach(item => { uniqueByNumber[item.number] = item; });
+  const deduped = Object.values(uniqueByNumber);
+  const sorted = [...deduped].sort((a, b) => b.energy - a.energy);
   const topNumbers = sorted.slice(0, 15);
-  
+  console.log('[Energy Panel] Top numbers (deduped):', topNumbers.map(n => n.number));
   container.innerHTML = topNumbers.map(num => `
     <div class="number-card" data-energy="${num.energy.toFixed(2)}">
       <div class="number">${num.number}</div>
@@ -241,12 +245,13 @@ export {
  * @version 1.0.0 | Created: 2024-08-20
  */
 function applyTemporalWeighting(draws, decayRate = 0.1) {
-  if (!draws.length) return draws;
+  const validDraws = draws.filter(d => d.date && typeof d.date.getTime === 'function');
+  if (!validDraws.length) return [];
   
-  const mostRecentDate = new Date(Math.max(...draws.map(d => d.date.getTime())));
-  const maxAgeDays = (mostRecentDate - new Date(Math.min(...draws.map(d => d.date.getTime())))) / (1000 * 60 * 60 * 24);
+  const mostRecentDate = new Date(Math.max(...validDraws.map(d => d.date.getTime())));
+  const maxAgeDays = (mostRecentDate - new Date(Math.min(...validDraws.map(d => d.date.getTime())))) / (1000 * 60 * 60 * 24);
   
-  return draws.map(draw => {
+  return validDraws.map(draw => {
     const ageDays = (mostRecentDate - draw.date) / (1000 * 60 * 60 * 24);
     const normalizedAge = ageDays / maxAgeDays;
     const weight = Math.exp(-decayRate * normalizedAge * 10); // Exponential decay

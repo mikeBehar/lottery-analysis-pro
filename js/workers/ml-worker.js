@@ -1,3 +1,6 @@
+import * as utils from '../utils.js';
+import * as tf from '@tensorflow/tfjs';
+
 // First line: confirm worker script is loaded
 console.log('[ML Worker] Script loaded');
 // Top-level error handler for uncaught exceptions
@@ -17,26 +20,23 @@ self.onerror = function(event) {
 
 // Debug: Log before loading dependencies
 console.log('[ML Worker] Starting worker script');
-try {
-  importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js', '../utils.js', '../ml.js');
-  console.log('[ML Worker] importScripts completed successfully');
-} catch (err) {
-  console.error('[ML Worker] importScripts failed:', err);
-  self.postMessage({ type: 'error', data: { message: 'importScripts failed: ' + (err && err.message ? err.message : err) } });
-}
 
+let lotteryML = null;
 let shouldStop = false;
 
-// Initialize ML instance
-const lotteryML = new self.LotteryML();
-
-self.onmessage = function(e) {
+self.onmessage = async function(e) {
   if (e.data.type === 'cancel') {
     shouldStop = true;
     return;
   }
+
+  if (!lotteryML) {
+    const { default: LotteryML } = await import('../ml.js');
+    await tf.ready();
+    lotteryML = new LotteryML(tf);
+  }
   
-  const { draws, decayRate } = e.data;
+  const { draws, decayRate } = e.data.data;
   
   try {
     self.postMessage({ type: 'progress', data: { message: 'Loading ML model' } });

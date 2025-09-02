@@ -3,15 +3,15 @@
 import state from './state.js';
 
 const workerPaths = {
-  ml: 'js/workers/ml-worker.js',
-  backtest: 'js/workers/backtest-worker.js',
+  ml: 'dist/ml-worker.bundle.js',
+  backtest: 'dist/backtest-worker.bundle.js',
 };
 
 const workers = {};
 
 function getWorker(type) {
   if (!workers[type]) {
-    workers[type] = new Worker(workerPaths[type], { type: 'module' });
+    workers[type] = new Worker(workerPaths[type]);
     workers[type].onmessage = (e) => {
       const { type: eventType, data } = e.data;
       // Publish all worker messages as events

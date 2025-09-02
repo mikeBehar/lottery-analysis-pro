@@ -1,3 +1,5 @@
+import { applyTemporalWeighting, calculateTemporalFrequency } from './utils.js';
+
 /**
  * MACHINE LEARNING MODULE FOR LOTTERY ANALYSIS
  * Version: 2.4.2 | Updated: 2025-08-21 02:45 PM EST
@@ -12,11 +14,12 @@
  */
 
 class LotteryML {
-  constructor() {
+  constructor(tfInstance) {
   this.version = "2.4.2";
     this.status = "initialized";
     this.model = null;
-    this.isTFLoaded = typeof tf !== 'undefined';
+    this.tf = tfInstance;
+    this.isTFLoaded = this.tf && this.tf.ready;
   }
 
   /**
@@ -27,7 +30,11 @@ class LotteryML {
    */
   async trainLSTM(draws, options = {}) {
     try {
-      if (typeof tf === 'undefined') {
+      if (this.tf && !this.tf.ready) {
+        await this.tf.ready();
+      }
+
+      if (typeof this.tf === 'undefined') {
         throw new Error('TensorFlow.js not loaded. Please include TensorFlow.js library');
       }
 
@@ -45,22 +52,26 @@ class LotteryML {
       console.log(`Training LSTM model on ${draws.length} draws...`);
 
       // Create and compile model
-      const model = tf.sequential();
-      model.add(tf.layers.lstm({
+      const model = this.tf.sequential();
+      model.add(this.tf.layers.lstm({
         units: units,
-        inputShape: [10, 1],
+        inputShape: [50, 1],
         returnSequences: false
       }));
-      model.add(tf.layers.dense({ units: 1, activation: 'linear' }));
+      model.add(this.tf.layers.dense({ units: 1, activation: 'linear' }));
 
       model.compile({
-        optimizer: tf.train.adam(0.001),
+        optimizer: this.tf.train.adam(0.001),
         loss: 'meanSquaredError',
         metrics: ['accuracy']
       });
 
       // Preprocess data
       const { inputs, labels } = this.preprocessData(draws);
+
+      if (!inputs) {
+        throw new Error("Could not create training data from draws. Check data quality.");
+      }
       
       // Train model
       const history = await model.fit(inputs, labels, {
@@ -124,25 +135,40 @@ class LotteryML {
     // Convert numbers to sequences for LSTM input
     const sequences = [];
     const targets = [];
-    
-    for (let i = 0; i < draws.length - 10; i++) {
+    const sequenceLength = 50;
+
+    for (let i = 0; i < draws.length - sequenceLength; i++) {
       const sequence = [];
-      for (let j = 0; j < 10; j++) {
+      let skip = false;
+      for (let j = 0; j < sequenceLength; j++) {
         // Use average of numbers in each draw as feature
         const draw = draws[i + j];
-        const avg = draw.numbers.reduce((sum, num) => sum + num, 0) / draw.numbers.length;
+        if (!draw.whiteBalls || draw.whiteBalls.length === 0) {
+          skip = true;
+          break;
+        }
+        const avg = draw.whiteBalls.reduce((sum, num) => sum + num, 0) / draw.whiteBalls.length;
         sequence.push(avg);
       }
-      sequences.push(sequence);
-      
+
+      if (skip) continue;
+
       // Target: average of next draw
-      const nextDraw = draws[i + 10];
-      targets.push(nextDraw.numbers.reduce((sum, num) => sum + num, 0) / nextDraw.numbers.length);
+      const nextDraw = draws[i + sequenceLength];
+      if (!nextDraw.whiteBalls || nextDraw.whiteBalls.length === 0) {
+        continue;
+      }
+      targets.push(nextDraw.whiteBalls.reduce((sum, num) => sum + num, 0) / nextDraw.whiteBalls.length);
+      sequences.push(sequence); // Only push sequence if target is valid
+    }
+
+    if (sequences.length === 0) {
+      return { inputs: null, labels: null };
     }
 
     return {
-      inputs: tf.tensor3d(sequences.map(seq => seq.map(val => [val]))),
-      labels: tf.tensor2d(targets.map(val => [val]))
+      inputs: this.tf.tensor3d(sequences.map(seq => seq.map(val => [val]))),
+      labels: this.tf.tensor2d(targets.map(val => [val]))
     };
   }
 
@@ -156,7 +182,7 @@ class LotteryML {
       if (this.model && this.status === 'trained') {
         // The LSTM prediction itself doesn't directly use decayRate in its current form,
         // but the input data can be weighted.
-        const weightedDraws = this.applyTemporalWeightingWithFallback(draws, decayRate);
+        const weightedDraws = applyTemporalWeighting(draws, decayRate);
         return await this.predictWithLSTM(weightedDraws);
       } else {
         // If model isn't trained, use the temporal frequency analysis
@@ -168,9 +194,7 @@ class LotteryML {
     }
   }
 
-  applyTemporalWeightingWithFallback(draws, decayRate) {
-    return typeof applyTemporalWeighting === 'function' ? applyTemporalWeighting(draws, decayRate) : draws;
-  }
+  
 
   /**
    * Predict using LSTM model
@@ -178,7 +202,7 @@ class LotteryML {
    * @returns {Object} LSTM prediction results
    */
   async predictWithLSTM(draws) {
-    const recentDraws = draws.slice(-10);
+    const recentDraws = draws.slice(-50);
     const { inputs } = this.preprocessData([...recentDraws, ...recentDraws]); // Pad for sequence
     const prediction = this.model.predict(inputs);
     const predictedValue = prediction.dataSync()[0];
@@ -187,10 +211,12 @@ class LotteryML {
     const numbers = this.valueToNumbers(predictedValue);
     
     return {
-      numbers: numbers,
+      whiteBalls: numbers,
+      numbers,
       confidence: 0.82,
       model: 'lstm',
-      method: 'neural_network'
+      method: 'neural_network',
+      powerball: Math.floor(Math.random() * 26) + 1
     };
   }
 
@@ -204,6 +230,7 @@ class LotteryML {
     const predictedNumbers = this.getFrequencyBasedPrediction(frequencyMap);
     
     return {
+      whiteBalls: predictedNumbers,
       numbers: predictedNumbers,
       confidence: 0.76,
       model: 'frequency_heuristic',
@@ -219,8 +246,10 @@ class LotteryML {
   calculateFrequency(draws) {
     const frequency = new Array(70).fill(0);
     draws.forEach(draw => {
-      if (draw?.numbers) {
-        draw.numbers.forEach(num => {
+      // Support both 'numbers' and 'whiteBalls' for backward compatibility
+      const nums = draw.numbers || draw.whiteBalls;
+      if (Array.isArray(nums)) {
+        nums.forEach(num => {
           if (num >= 1 && num <= 69) {
             frequency[num]++;
           }
@@ -250,9 +279,11 @@ class LotteryML {
         .slice(0, 10)
         .map(item => item.number);
       return {
+        whiteBalls: predictedNumbers,
         numbers: predictedNumbers,
         confidence: Math.min(0.82, 0.65 + (weightedDraws.length > 100 ? 0.17 : 0)),
-        model: 'temporal_frequency'
+        model: 'temporal_frequency',
+        powerball: Math.floor(Math.random() * 26) + 1
       };
     } catch (error) {
       console.error('Temporal frequency prediction failed:', error);
@@ -284,11 +315,13 @@ class LotteryML {
     const commonNumbers = [7, 19, 23, 31, 42, 56, 11, 15, 44, 58];
     
     return {
+      whiteBalls: commonNumbers,
       numbers: commonNumbers,
       confidence: 0.5,
       model: 'fallback',
       method: 'common_patterns',
-      warning: 'Using fallback prediction - consider training model'
+      warning: 'Using fallback prediction - consider training model',
+      powerball: Math.floor(Math.random() * 26) + 1
     };
   }
 
@@ -362,7 +395,7 @@ if (typeof window !== 'undefined') {
 
 } else if (typeof self !== 'undefined') {
   // In worker context, export the class for importScripts
-  self.LotteryML = LotteryML;
+  
 }
 
 export default LotteryML;
