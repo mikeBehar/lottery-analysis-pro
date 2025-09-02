@@ -1823,14 +1823,17 @@
           const { inputs } = this.preprocessData([...recentDraws, ...recentDraws]);
           const prediction = this.model.predict(inputs);
           const predictedValue = prediction.dataSync()[0];
-          const numbers = this.valueToNumbers(predictedValue);
+          const numbers = this.valueToNumbers(predictedValue, this.getCurrentOffsets());
           return {
-            whiteBalls: numbers,
+            whiteBalls: numbers.slice(0, 5),
+            // Take only 5 for whiteball prediction
             numbers,
             confidence: 0.82,
             model: "lstm",
             method: "neural_network",
-            powerball: Math.floor(Math.random() * 26) + 1
+            powerball: Math.floor(Math.random() * 26) + 1,
+            offsets: this.getCurrentOffsets()
+            // Include offsets in response for transparency
           };
         }
         /**
@@ -1918,22 +1921,32 @@
         /**
          * Convert predicted value to discrete numbers
          * @param {number} value - Predicted continuous value
+         * @param {Array} customOffsets - Custom offset array (optional)
          * @returns {Array} Discrete lottery numbers
          */
-        valueToNumbers(value) {
+        valueToNumbers(value, customOffsets = null) {
           const base = Math.round(value);
-          return [
-            base,
-            base + 7,
-            base + 13,
-            base + 19,
-            base + 23,
-            base % 69 + 1,
-            base * 2 % 69 + 1,
-            (base + 11) % 69 + 1,
-            (base + 17) % 69 + 1,
-            (base + 29) % 69 + 1
-          ].map((num) => Math.max(1, Math.min(69, num))).slice(0, 10);
+          const offsets = customOffsets || [0, 7, 13, 19, 23, 11, 17, 29, 5, 37];
+          const numbers = offsets.map((offset) => {
+            const num = (base + offset) % 69 + 1;
+            return Math.max(1, Math.min(69, num));
+          });
+          return [...new Set(numbers)].slice(0, 10);
+        }
+        /**
+         * Set optimized offsets for future predictions
+         * @param {Array} offsets - Optimized offset array
+         */
+        setOptimizedOffsets(offsets) {
+          this.optimizedOffsets = offsets;
+          console.log("ML model updated with optimized offsets:", offsets);
+        }
+        /**
+         * Get current offsets (optimized or default)
+         * @returns {Array} Current offset array
+         */
+        getCurrentOffsets() {
+          return this.optimizedOffsets || [0, 7, 13, 19, 23, 11, 17, 29, 5, 37];
         }
         /**
          * Get module status and information
@@ -67402,11 +67415,6 @@ return a / b;`;
       });
     }
   };
-  self.addEventListener("message", function(e) {
-    if (e.data.type === "cancel") {
-      shouldStop = true;
-    }
-  });
   function makePrediction(draws, decayRate) {
     self.postMessage({ type: "progress", data: { message: "Making prediction" } });
     lotteryML.predictNextNumbers(draws, decayRate).then((prediction) => {

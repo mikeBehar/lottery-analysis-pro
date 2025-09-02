@@ -8,7 +8,7 @@
     "test": "jest",
     "lint": "eslint js/*.js",
     "build": "npm run build:workers && esbuild js/app.js --bundle --outfile=dist/bundle.js --sourcemap",
-    "build:workers": "esbuild js/workers/ml-worker.js --bundle --outfile=dist/ml-worker.bundle.js && esbuild js/workers/backtest-worker.js --bundle --outfile=dist/backtest-worker.bundle.js",
+    "build:workers": "esbuild js/workers/ml-worker.js --bundle --outfile=dist/ml-worker.bundle.js && esbuild js/workers/backtest-worker.js --bundle --outfile=dist/backtest-worker.bundle.js && esbuild js/workers/optimization-worker.js --bundle --outfile=dist/optimization-worker.bundle.js",
     "pretest:e2e": "npm run build",
     "test:e2e": "playwright test",
     "posttest:e2e": "npx playwright show-report"

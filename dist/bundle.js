@@ -24,8 +24,13 @@
     });
   }
   function displayEnergyResults(energyData, container) {
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
     if (!energyData || energyData.length === 0) {
-      container.innerHTML = "<p>No energy data available</p>";
+      const noDataMsg = document.createElement("p");
+      noDataMsg.textContent = "No energy data available";
+      container.appendChild(noDataMsg);
       return;
     }
     const uniqueByNumber = {};
@@ -36,18 +41,24 @@
     const sorted = [...deduped].sort((a, b) => b.energy - a.energy);
     const topNumbers = sorted.slice(0, 15);
     console.log("[Energy Panel] Top numbers (deduped):", topNumbers.map((n) => n.number));
-    container.innerHTML = topNumbers.map((num) => `
-    <div class="number-card" data-energy="${num.energy.toFixed(2)}">
-      <div class="number">${num.number}</div>
-      <div class="energy-score">${num.energy.toFixed(2)}</div>
-      <div class="energy-breakdown">
-        Prime: ${num.isPrime ? "\u2713" : "\u2717"} | 
-        Root: ${num.digitalRoot} | 
-        Mod5: ${(num.mod5 / 0.2).toFixed(0)} | 
-        Grid: ${num.gridScore.toFixed(1)}
-      </div>
-    </div>
-  `).join("");
+    topNumbers.forEach((num) => {
+      const card = document.createElement("div");
+      card.className = "number-card";
+      card.setAttribute("data-energy", num.energy.toFixed(2));
+      const numberDiv = document.createElement("div");
+      numberDiv.className = "number";
+      numberDiv.textContent = num.number;
+      const scoreDiv = document.createElement("div");
+      scoreDiv.className = "energy-score";
+      scoreDiv.textContent = num.energy.toFixed(2);
+      const breakdownDiv = document.createElement("div");
+      breakdownDiv.className = "energy-breakdown";
+      breakdownDiv.textContent = `Prime: ${num.isPrime ? "\u2713" : "\u2717"} | Root: ${num.digitalRoot} | Mod5: ${(num.mod5 / 0.2).toFixed(0)} | Grid: ${num.gridScore.toFixed(1)}`;
+      card.appendChild(numberDiv);
+      card.appendChild(scoreDiv);
+      card.appendChild(breakdownDiv);
+      container.appendChild(card);
+    });
   }
   function isPrime(num) {
     if (num <= 1) return false;
@@ -107,6 +118,66 @@
   if (typeof window !== "undefined") {
     window.applyTemporalWeighting = applyTemporalWeighting;
     window.calculateTemporalFrequency = calculateTemporalFrequency;
+  }
+
+  // js/notifications.js
+  var notificationContainer = null;
+  function initNotifications() {
+    if (!notificationContainer) {
+      notificationContainer = document.createElement("div");
+      notificationContainer.id = "notification-container";
+      notificationContainer.className = "notification-container";
+      document.body.appendChild(notificationContainer);
+    }
+  }
+  function showNotification(title, message, type = "info", duration = 5e3) {
+    initNotifications();
+    const notification = document.createElement("div");
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+    <div class="notification-content">
+      <div class="notification-title">${escapeHtml(title)}</div>
+      <div class="notification-message">${escapeHtml(message)}</div>
+    </div>
+    <button class="notification-close" aria-label="Close notification">&times;</button>
+  `;
+    const closeBtn = notification.querySelector(".notification-close");
+    closeBtn.addEventListener("click", () => {
+      removeNotification(notification);
+    });
+    notificationContainer.appendChild(notification);
+    setTimeout(() => notification.classList.add("notification-show"), 10);
+    if (duration > 0) {
+      setTimeout(() => {
+        removeNotification(notification);
+      }, duration);
+    }
+    return notification;
+  }
+  function removeNotification(notification) {
+    notification.classList.add("notification-hide");
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 300);
+  }
+  function showError(title, message) {
+    return showNotification(title, message, "error", 8e3);
+  }
+  function showSuccess(title, message) {
+    return showNotification(title, message, "success", 4e3);
+  }
+  function showInfo(title, message) {
+    return showNotification(title, message, "info", 5e3);
+  }
+  function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  if (typeof document !== "undefined") {
+    document.addEventListener("DOMContentLoaded", initNotifications);
   }
 
   // js/state.js
@@ -242,7 +313,7 @@
   state_default.subscribe("progress", (msg) => showProgress(msg));
   state_default.subscribe("hideProgress", () => hideProgress());
   state_default.subscribe("analyzeBtnState", (enabled) => setAnalyzeBtnState(enabled));
-  state_default.subscribe("error", ({ title, message }) => showError(title, message));
+  state_default.subscribe("error", ({ title, message }) => showErrorOld(title, message));
   state_default.subscribe("energyResults", (energyData) => displayEnergyResults2(energyData, elements.energyResults));
   state_default.subscribe("mlResults", (mlPrediction) => displayMLResults(mlPrediction, elements.mlResults, elements));
   state_default.subscribe("recommendations", (recommendations) => displayRecommendations(recommendations, elements));
@@ -365,7 +436,7 @@
     const cancelBtn = document.getElementById("cancel-btn");
     if (cancelBtn) cancelBtn.style.display = "inline-block";
   }
-  function showError(title, error) {
+  function showErrorOld(title, error) {
     let msg = "";
     if (error && typeof error.message === "string") {
       msg = error.message;
@@ -377,7 +448,7 @@
       msg = "Unknown error";
     }
     console.error(`${title}:`, error);
-    alert(`${title}: ${msg}`);
+    showError(title, msg);
   }
 
   // js/analysis.js
@@ -462,7 +533,8 @@
   // js/worker-wrapper.js
   var workerPaths = {
     ml: "dist/ml-worker.bundle.js",
-    backtest: "dist/backtest-worker.bundle.js"
+    backtest: "dist/backtest-worker.bundle.js",
+    optimization: "dist/optimization-worker.bundle.js"
   };
   var workers = {};
   function getWorker(type) {
@@ -484,8 +556,265 @@
   state_default.subscribe("backtest:run", (payload) => {
     getWorker("backtest").postMessage({ type: "run", data: payload });
   });
+  state_default.subscribe("optimization:start", (payload) => {
+    getWorker("optimization").postMessage({ type: "optimize", data: payload });
+  });
+  state_default.subscribe("optimization:cancel", () => {
+    getWorker("optimization").postMessage({ type: "cancel" });
+  });
+  state_default.subscribe("optimization:status", () => {
+    getWorker("optimization").postMessage({ type: "status" });
+  });
+
+  // js/optimization-ui.js
+  var currentOptimization = null;
+  function initOptimizationUI() {
+    const optimizeOffsetsBtn = document.getElementById("optimize-offsets");
+    const optimizeWeightsBtn = document.getElementById("optimize-weights");
+    const optimizeHybridBtn = document.getElementById("optimize-hybrid");
+    const cancelBtn = document.getElementById("cancel-optimization");
+    if (optimizeOffsetsBtn) {
+      optimizeOffsetsBtn.addEventListener("click", () => startOptimization("offsets"));
+    }
+    if (optimizeWeightsBtn) {
+      optimizeWeightsBtn.addEventListener("click", () => startOptimization("weights"));
+    }
+    if (optimizeHybridBtn) {
+      optimizeHybridBtn.addEventListener("click", () => startOptimization("hybrid"));
+    }
+    if (cancelBtn) {
+      cancelBtn.addEventListener("click", cancelOptimization);
+    }
+    state_default.subscribe("optimization:started", handleOptimizationStarted);
+    state_default.subscribe("optimization:progress", handleOptimizationProgress);
+    state_default.subscribe("optimization:complete", handleOptimizationComplete);
+    state_default.subscribe("optimization:cancelled", handleOptimizationCancelled);
+    state_default.subscribe("optimization:error", handleOptimizationError);
+    console.log("[Optimization UI] Initialized successfully");
+  }
+  function startOptimization(type) {
+    if (currentOptimization) {
+      showError("Optimization Running", "An optimization is already in progress");
+      return;
+    }
+    if (!state_default.draws || state_default.draws.length < 50) {
+      showError("Insufficient Data", "Please upload a CSV file with at least 50 historical draws");
+      return;
+    }
+    const iterations = parseInt(document.getElementById("optimization-iterations").value) || 100;
+    const method = document.getElementById("optimization-method").value || "random";
+    if (iterations < 10 || iterations > 1e3) {
+      showError("Invalid Settings", "Iterations must be between 10 and 1000");
+      return;
+    }
+    currentOptimization = {
+      type,
+      startTime: Date.now(),
+      settings: { iterations, method }
+    };
+    setOptimizationRunningState(true);
+    showOptimizationProgress(`Starting ${type} optimization...`, 0);
+    const resultsContainer = document.getElementById("optimization-results");
+    if (resultsContainer) {
+      resultsContainer.innerHTML = "";
+    }
+    showInfo("Optimization Started", `${getOptimizationTypeLabel(type)} optimization started with ${iterations} iterations`);
+    state_default.publish("optimization:start", {
+      historicalData: state_default.draws,
+      optimizationType: type,
+      searchParams: {
+        method,
+        iterations,
+        crossValidationFolds: 5
+      }
+    });
+  }
+  function cancelOptimization() {
+    if (!currentOptimization) {
+      return;
+    }
+    showInfo("Cancelling", "Stopping optimization...");
+    state_default.publish("optimization:cancel");
+  }
+  function handleOptimizationStarted(data) {
+    console.log("[Optimization UI] Optimization started:", data);
+    showOptimizationProgress(data.message, 0);
+  }
+  function handleOptimizationProgress(data) {
+    console.log("[Optimization UI] Progress:", data);
+    if (data.iteration && currentOptimization) {
+      const progress = data.iteration / currentOptimization.settings.iterations * 100;
+      showOptimizationProgress(data.message, progress);
+    } else {
+      showOptimizationProgress(data.message, null);
+    }
+  }
+  function handleOptimizationComplete(data) {
+    console.log("[Optimization UI] Optimization complete:", data);
+    const duration = currentOptimization ? (Date.now() - currentOptimization.startTime) / 1e3 : 0;
+    hideOptimizationProgress();
+    setOptimizationRunningState(false);
+    displayOptimizationResults(data.results, duration);
+    showSuccess("Optimization Complete", `${getOptimizationTypeLabel(data.results.type)} optimization completed successfully`);
+    currentOptimization = null;
+  }
+  function handleOptimizationCancelled(data) {
+    console.log("[Optimization UI] Optimization cancelled:", data);
+    hideOptimizationProgress();
+    setOptimizationRunningState(false);
+    showInfo("Cancelled", "Optimization was cancelled");
+    currentOptimization = null;
+  }
+  function handleOptimizationError(data) {
+    console.error("[Optimization UI] Optimization error:", data);
+    hideOptimizationProgress();
+    setOptimizationRunningState(false);
+    showError("Optimization Failed", data.message || "An unknown error occurred");
+    currentOptimization = null;
+  }
+  function setOptimizationRunningState(running) {
+    const optimizationBtns = document.querySelectorAll(".optimization-btn");
+    const cancelBtn = document.getElementById("cancel-optimization");
+    optimizationBtns.forEach((btn) => {
+      btn.disabled = running;
+    });
+    if (cancelBtn) {
+      cancelBtn.style.display = running ? "inline-block" : "none";
+    }
+  }
+  function showOptimizationProgress(message, progress = null) {
+    const progressContainer = document.getElementById("optimization-progress");
+    if (!progressContainer) return;
+    progressContainer.style.display = "block";
+    let progressBarHtml = "";
+    if (progress !== null) {
+      progressBarHtml = `
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: ${progress}%"></div>
+      </div>
+    `;
+    }
+    progressContainer.innerHTML = `
+    <div class="progress-text">${message}</div>
+    ${progressBarHtml}
+    <div class="progress-details">
+      ${progress !== null ? `Progress: ${progress.toFixed(1)}%` : "Processing..."}
+    </div>
+  `;
+  }
+  function hideOptimizationProgress() {
+    const progressContainer = document.getElementById("optimization-progress");
+    if (progressContainer) {
+      progressContainer.style.display = "none";
+    }
+  }
+  function displayOptimizationResults(results, duration) {
+    const resultsContainer = document.getElementById("optimization-results");
+    if (!resultsContainer) return;
+    const { bestParams, bestPerformance, improvement, type } = results;
+    const summaryHtml = `
+    <div class="optimization-summary">
+      <h3>\u2705 ${getOptimizationTypeLabel(type)} Optimization Complete</h3>
+      <p><strong>Duration:</strong> ${duration.toFixed(1)} seconds</p>
+      <p><strong>Best Hit Rate:</strong> ${(bestPerformance.hitRate * 100).toFixed(2)}%</p>
+      <p><strong>Average Matches:</strong> ${bestPerformance.averageMatches.toFixed(2)}</p>
+      ${improvement.hitRateImprovement > 0 ? `<span class="improvement-indicator improvement-positive">
+          +${improvement.hitRateImprovement.toFixed(1)}% improvement
+        </span>` : `<span class="improvement-indicator improvement-negative">
+          ${improvement.hitRateImprovement.toFixed(1)}% change
+        </span>`}
+    </div>
+  `;
+    const metricsHtml = `
+    <div class="results-grid">
+      <div class="result-card">
+        <div class="result-value">${(bestPerformance.hitRate * 100).toFixed(1)}%</div>
+        <div class="result-label">Hit Rate</div>
+      </div>
+      <div class="result-card">
+        <div class="result-value">${bestPerformance.averageMatches.toFixed(2)}</div>
+        <div class="result-label">Avg Matches</div>
+      </div>
+      <div class="result-card">
+        <div class="result-value">${bestPerformance.maxMatches}</div>
+        <div class="result-label">Max Matches</div>
+      </div>
+      <div class="result-card">
+        <div class="result-value">${(bestPerformance.consistency * 100).toFixed(1)}%</div>
+        <div class="result-label">Consistency</div>
+      </div>
+    </div>
+  `;
+    let parametersHtml = "<h4>Optimized Parameters:</h4>";
+    if (bestParams.offsets) {
+      parametersHtml += `
+      <div class="parameter-display">
+        <strong>ML Offsets:</strong> [${bestParams.offsets.join(", ")}]
+      </div>
+    `;
+    }
+    if (bestParams.weights) {
+      parametersHtml += `
+      <div class="parameter-display">
+        <strong>Energy Weights:</strong><br>
+        Prime: ${bestParams.weights.prime.toFixed(3)}<br>
+        Digital Root: ${bestParams.weights.digitalRoot.toFixed(3)}<br>
+        Mod5: ${bestParams.weights.mod5.toFixed(3)}<br>
+        Grid Position: ${bestParams.weights.gridPosition.toFixed(3)}
+      </div>
+    `;
+    }
+    const applyButton = `
+    <button id="apply-optimized-params" class="optimization-btn" style="margin-top: 1rem;">
+      Apply Optimized Parameters
+    </button>
+  `;
+    resultsContainer.innerHTML = summaryHtml + metricsHtml + parametersHtml + applyButton;
+    const applyBtn = document.getElementById("apply-optimized-params");
+    if (applyBtn) {
+      applyBtn.addEventListener("click", () => {
+        applyOptimizedParameters(bestParams);
+        showSuccess("Parameters Applied", "Optimized parameters have been applied to the prediction models");
+      });
+    }
+  }
+  function applyOptimizedParameters(params) {
+    if (params.offsets) {
+      state_default.publish("ml:setOffsets", params.offsets);
+    }
+    if (params.weights) {
+      state_default.publish("energy:setWeights", params.weights);
+    }
+    console.log("[Optimization UI] Applied optimized parameters:", params);
+  }
+  function getOptimizationTypeLabel(type) {
+    switch (type) {
+      case "offsets":
+        return "ML Offset";
+      case "weights":
+        return "Energy Weight";
+      case "hybrid":
+        return "Hybrid";
+      default:
+        return "Unknown";
+    }
+  }
 
   // js/app.js
+  var CONFIG = {
+    analysisMethods: ["energy", "ml", "hybrid"],
+    backtestSettings: {
+      initialTrainingSize: 100,
+      testWindowSize: 50
+    },
+    energyWeights: {
+      // Default weights
+      prime: 0.3,
+      digitalRoot: 0.2,
+      mod5: 0.2,
+      gridPosition: 0.3
+    }
+  };
   async function runBacktest(settings = CONFIG.backtestSettings) {
     if (state_default.draws.length === 0) {
       state_default.publish("error", { title: "No Data", message: "Please upload a CSV file with lottery data first." });
@@ -519,20 +848,6 @@
       state_default.publish("hideProgress");
     }
   }
-  var CONFIG = {
-    analysisMethods: ["energy", "ml", "hybrid"],
-    backtestSettings: {
-      initialTrainingSize: 100,
-      testWindowSize: 50
-    },
-    energyWeights: {
-      // Default weights
-      prime: 0.3,
-      digitalRoot: 0.2,
-      mod5: 0.2,
-      gridPosition: 0.3
-    }
-  };
   state_default.draws = [];
   async function runAnalysis() {
     if (state_default.draws.length === 0) {
@@ -628,6 +943,11 @@
       return;
     }
     state_default.publish("progress", "Parsing CSV file...");
+    const Papa = window.Papa;
+    if (!Papa) {
+      state_default.publish("error", { title: "Library Error", message: "PapaParse library not loaded" });
+      return;
+    }
     Papa.parse(file, {
       header: false,
       dynamicTyping: false,
@@ -661,6 +981,7 @@
   document.addEventListener("DOMContentLoaded", () => {
     initUIElements(CONFIG, state_default);
     initEventListeners();
+    initOptimizationUI();
   });
 })();
 //# sourceMappingURL=bundle.js.map

@@ -60,12 +60,6 @@ self.onmessage = async function(e) {
   }
 };
 
-// Listen for cancellation messages
-self.addEventListener('message', function(e) {
-  if (e.data.type === 'cancel') {
-    shouldStop = true;
-  }
-});
 
 function makePrediction(draws, decayRate) {
   self.postMessage({ type: 'progress', data: { message: 'Making prediction' } });

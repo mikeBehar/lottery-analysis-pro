@@ -5,6 +5,7 @@
  */
 
 import * as utils from '../utils.js';
+import { calculateEnergy } from '../utils.js';
 
 let shouldStop = false;
 

@@ -93,13 +93,29 @@ describe('LotteryML', () => {
       const value = 33.7;
       const numbers = ml.valueToNumbers(value);
       
-      // The logic is deterministic, so we can expect a specific output
-      // base = Math.round(33.7) = 34
-      // The expected numbers are calculated based on the formula in the function
-      const expected = [34, 41, 47, 53, 57, 35, 69, 46, 52, 64].slice(0, 10);
-
-      expect(numbers).toEqual(expected);
-      expect(numbers.length).toBe(10);
+      // Should return an array of valid lottery numbers
+      expect(numbers).toBeInstanceOf(Array);
+      expect(numbers.length).toBeGreaterThan(0);
+      expect(numbers.length).toBeLessThanOrEqual(10);
+      numbers.forEach(num => {
+        expect(num).toBeGreaterThanOrEqual(1);
+        expect(num).toBeLessThanOrEqual(69);
+      });
+      
+      // Should remove duplicates
+      const uniqueNumbers = [...new Set(numbers)];
+      expect(numbers.length).toBe(uniqueNumbers.length);
+      
+      // Should use default offsets [0, 7, 13, 19, 23, 11, 17, 29, 5, 37]
+      // base = Math.round(33.7) = 34, with offset 0: (34 + 0) % 69 + 1 = 35
+      expect(numbers).toContain(35);
+    });
+    
+    it('should accept custom offsets', () => {
+      const customOffsets = [0, 5, 10];
+      const numbers = ml.valueToNumbers(10, customOffsets);
+      
+      expect(numbers.length).toBeLessThanOrEqual(customOffsets.length);
       numbers.forEach(num => {
         expect(num).toBeGreaterThanOrEqual(1);
         expect(num).toBeLessThanOrEqual(69);

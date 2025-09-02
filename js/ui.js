@@ -1,4 +1,6 @@
 import { displayEnergyResults as displayEnergyResultsFromUtils } from './utils.js';
+import { showError, showSuccess, showInfo } from './notifications.js';
+import state from './state.js';
 
 export function displayEnergyResults(energyData, container) {
   displayEnergyResultsFromUtils(energyData, container);
@@ -125,13 +127,11 @@ export function initUIElements(CONFIG, state) {
   // ...add more UI initialization as needed...
 }
 
-import state from './state.js';
-
 // Subscribe to pub/sub events for analysis workflow
 state.subscribe('progress', (msg) => showProgress(msg));
 state.subscribe('hideProgress', () => hideProgress());
 state.subscribe('analyzeBtnState', (enabled) => setAnalyzeBtnState(enabled));
-state.subscribe('error', ({ title, message }) => showError(title, message));
+state.subscribe('error', ({ title, message }) => showErrorOld(title, message));
 state.subscribe('energyResults', (energyData) => displayEnergyResults(energyData, elements.energyResults));
 state.subscribe('mlResults', (mlPrediction) => displayMLResults(mlPrediction, elements.mlResults, elements));
 state.subscribe('recommendations', (recommendations) => displayRecommendations(recommendations, elements));
@@ -329,7 +329,7 @@ export function hideCancelButton() {
   if (cancelBtn) cancelBtn.style.display = 'none';
 }
 
-export function showError(title, error) {
+export function showErrorOld(title, error) {
   let msg = '';
   if (error && typeof error.message === 'string') {
     msg = error.message;
@@ -341,5 +341,5 @@ export function showError(title, error) {
     msg = 'Unknown error';
   }
   console.error(`${title}:`, error);
-  alert(`${title}: ${msg}`);
+  showError(title, msg);
 }

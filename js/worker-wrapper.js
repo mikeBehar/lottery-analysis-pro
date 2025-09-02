@@ -5,6 +5,7 @@ import state from './state.js';
 const workerPaths = {
   ml: 'dist/ml-worker.bundle.js',
   backtest: 'dist/backtest-worker.bundle.js',
+  optimization: 'dist/optimization-worker.bundle.js',
 };
 
 const workers = {};
@@ -31,6 +32,18 @@ state.subscribe('ml:predict', (payload) => {
 
 state.subscribe('backtest:run', (payload) => {
   getWorker('backtest').postMessage({ type: 'run', data: payload });
+});
+
+state.subscribe('optimization:start', (payload) => {
+  getWorker('optimization').postMessage({ type: 'optimize', data: payload });
+});
+
+state.subscribe('optimization:cancel', () => {
+  getWorker('optimization').postMessage({ type: 'cancel' });
+});
+
+state.subscribe('optimization:status', () => {
+  getWorker('optimization').postMessage({ type: 'status' });
 });
 
 export default {

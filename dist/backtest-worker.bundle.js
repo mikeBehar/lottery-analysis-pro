@@ -1,5 +1,53 @@
 (() => {
   // js/utils.js
+  function calculateEnergy(numbers, weights) {
+    const defaultWeights = {
+      prime: 0.3,
+      digitalRoot: 0.2,
+      mod5: 0.2,
+      gridPosition: 0.3
+    };
+    const effectiveWeights = weights || defaultWeights;
+    return numbers.map((num) => {
+      const energyComponents = {
+        isPrime: isPrime(num) ? 1 : 0,
+        digitalRoot: getDigitalRoot(num),
+        mod5: num % 5 * 0.2,
+        gridScore: getGridPositionScore(num)
+      };
+      const energy = energyComponents.isPrime * effectiveWeights.prime + energyComponents.digitalRoot * effectiveWeights.digitalRoot + energyComponents.mod5 * effectiveWeights.mod5 + energyComponents.gridScore * effectiveWeights.gridPosition;
+      return {
+        number: num,
+        ...energyComponents,
+        energy
+      };
+    });
+  }
+  function isPrime(num) {
+    if (num <= 1) return false;
+    if (num <= 3) return true;
+    if (num % 2 === 0 || num % 3 === 0) return false;
+    for (let i = 5; i * i <= num; i += 6) {
+      if (num % i === 0 || num % (i + 2) === 0) return false;
+    }
+    return true;
+  }
+  function getDigitalRoot(num) {
+    return num - 9 * Math.floor((num - 1) / 9);
+  }
+  function getGridPositionScore(num) {
+    const GRID = [
+      [0.3, 0.5, 0.7, 0.9, 1, 0.9, 0.7, 0.5, 0.3, 0.5, 0.7, 0.9, 1, 0.9],
+      [0.5, 0.7, 0.9, 1, 0.9, 0.7, 0.5, 0.7, 0.9, 1, 0.9, 0.7, 0.5, 0.7],
+      [0.7, 0.9, 1, 0.9, 0.7, 0.5, 0.3, 0.5, 0.7, 0.9, 1, 0.9, 0.7, 0.5],
+      [0.5, 0.7, 0.9, 1, 0.9, 0.7, 0.5, 0.7, 0.9, 1, 0.9, 0.7, 0.5, 0.7],
+      [0.3, 0.5, 0.7, 0.9, 1, 0.9, 0.7, 0.5, 0.3, 0.5, 0.7, 0.9, 1, 0.9]
+    ];
+    if (num < 1 || num > 70) return 0.5;
+    const row = Math.floor((num - 1) / 14);
+    const col = (num - 1) % 14;
+    return GRID[row]?.[col] ?? 0.5;
+  }
   function applyTemporalWeighting(draws, decayRate = 0.1) {
     const validDraws = draws.filter((d) => d.date && typeof d.date.getTime === "function");
     if (!validDraws.length) return [];
