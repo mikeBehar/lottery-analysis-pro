@@ -53,7 +53,13 @@ import {
     getHotAndColdNumbers,
     getOverdueNumbers
 } from './analysis.js';
+import { generateEnhancedRecommendations } from './enhanced-recommendations.js';
 import workerWrapper from './worker-wrapper.js';
+import { initOptimizationUI } from './optimization-ui.js';
+import { initConfidenceUI } from './confidence-ui.js';
+import { initAccuracyUI } from './accuracy-ui.js';
+import { initStrategyBuilder } from './strategy-builder.js';
+import progressStatus from './progress-status.js';
 
 // ==================== CONFIG & STATE ==================== //
 const CONFIG = {
@@ -116,7 +122,10 @@ export async function runAnalysis() {
         state.publish('progress', 'Running ML predictions...');
         const mlResultPromise = new Promise((resolve, reject) => {
             let unsubResult, unsubError;
-            const cleanup = () => { unsubResult(); unsubError(); };
+            const cleanup = () => { 
+                if (unsubResult) unsubResult(); 
+                if (unsubError) unsubError(); 
+            };
 
             const handler = (mlPrediction) => {
                 cleanup();
@@ -124,47 +133,134 @@ export async function runAnalysis() {
             };
             const errorHandler = (err) => {
                 cleanup();
-                reject(err);
+                reject(err || new Error('ML prediction failed with unknown error'));
             };
 
             unsubResult = state.subscribe('ml:result', handler);
             unsubError = state.subscribe('ml:error', errorHandler);
+            
+            // Add a timeout to prevent hanging (increased for large datasets)
+            setTimeout(() => {
+                cleanup();
+                reject(new Error('ML prediction timeout after 2 minutes'));
+            }, 120000);
         });
 
         state.publish('ml:predict', { draws: state.draws });
         const mlPrediction = await mlResultPromise;
         state.publish('mlResults', mlPrediction);
 
-        state.publish('progress', 'Generating recommendations...');
-        const recommendations = generateRecommendations(energyData, mlPrediction);
+        state.publish('progress', 'Generating enhanced recommendations...');
+        const recommendations = await generateRecommendations(energyData, mlPrediction);
         state.publish('recommendations', recommendations);
 
     } catch (error) {
-        state.publish('error', { title: 'Analysis Failed', message: error.message || error });
+        console.error('Analysis error details:', error);
+        const errorMessage = error?.message || error?.toString() || 'Unknown error occurred during analysis';
+        state.publish('error', { title: 'Analysis Failed', message: errorMessage });
     } finally {
         state.publish('hideProgress');
         state.publish('analyzeBtnState', true);
     }
 }
 
-function generateRecommendations(energyData, mlPrediction) {
-    // Deduplicate by number
+async function generateRecommendations(energyData, mlPrediction) {
+    try {
+        // Validate inputs
+        if (!Array.isArray(energyData)) {
+            throw new Error('Energy data is not an array');
+        }
+        if (!mlPrediction || typeof mlPrediction !== 'object') {
+            throw new Error('ML prediction is invalid');
+        }
+
+        // Deduplicate energy data by number
+        const uniqueByNumber = {};
+        energyData.forEach(item => { 
+            if (item && item.number) {
+                uniqueByNumber[item.number] = item; 
+            }
+        });
+        const dedupedEnergyData = Object.values(uniqueByNumber);
+
+        // Generate position predictions if confidence predictor is available
+        let positionPredictions = null;
+        try {
+            const { PositionBasedPredictor } = await import('./confidence-predictor.js');
+            const predictor = new PositionBasedPredictor(state.draws);
+            positionPredictions = await predictor.generatePredictionWithConfidenceIntervals({
+                confidenceLevel: 0.95,
+                method: 'bootstrap',
+                includeCorrelations: true
+            });
+        } catch (error) {
+            console.warn('Position predictions unavailable:', error.message);
+        }
+
+        // Use enhanced recommendations system
+        const enhancedRecommendations = generateEnhancedRecommendations(
+            dedupedEnergyData, 
+            mlPrediction, 
+            positionPredictions, 
+            state.draws
+        );
+
+        // Maintain backward compatibility with existing UI expectations
+        const legacyFormat = {
+            highConfidence: enhancedRecommendations.highConfidence,
+            energyBased: enhancedRecommendations.energyBased || dedupedEnergyData
+                .sort((a, b) => b.energy - a.energy)
+                .slice(0, 5)
+                .map(item => item.number),
+            mlBased: mlPrediction.whiteBalls || [],
+            powerball: mlPrediction.powerball,
+            summary: enhancedRecommendations.summary || `Based on ${state.draws.length} historical draws`
+        };
+
+        // Add enhanced features
+        legacyFormat.mediumConfidence = enhancedRecommendations.mediumConfidence;
+        legacyFormat.alternativeSelections = enhancedRecommendations.alternativeSelections;
+        legacyFormat.positionBased = enhancedRecommendations.positionBased;
+        legacyFormat.insights = enhancedRecommendations.insights;
+        legacyFormat.confidenceScores = enhancedRecommendations.confidenceScores;
+
+        console.log('[Enhanced Recommendations] High confidence count:', legacyFormat.highConfidence.length);
+        console.log('[Enhanced Recommendations] Medium confidence count:', legacyFormat.mediumConfidence.length);
+        console.log('[Enhanced Recommendations] Alternative strategies:', legacyFormat.alternativeSelections.length);
+
+        return legacyFormat;
+
+    } catch (error) {
+        console.error('Error generating enhanced recommendations:', error);
+        
+        // Fallback to simple recommendations if enhanced system fails
+        const fallbackRecommendations = generateSimpleRecommendations(energyData, mlPrediction);
+        fallbackRecommendations.error = `Enhanced recommendations failed: ${error.message}`;
+        return fallbackRecommendations;
+    }
+}
+
+function generateSimpleRecommendations(energyData, mlPrediction) {
+    // Fallback implementation
     const uniqueByNumber = {};
-    energyData.forEach(item => { uniqueByNumber[item.number] = item; });
+    energyData.forEach(item => { 
+        if (item && item.number) {
+            uniqueByNumber[item.number] = item; 
+        }
+    });
     const deduped = Object.values(uniqueByNumber);
     const topEnergy = [...deduped].sort((a, b) => b.energy - a.energy).slice(0, 5);
     const mlNumbers = (mlPrediction.whiteBalls || []).slice(0, 5);
 
     const energyNumbers = topEnergy.map(item => item.number);
     const overlap = mlNumbers.filter(num => energyNumbers.includes(num));
-    console.log('[Recommendations] Top energy numbers (deduped):', energyNumbers);
-    console.log('[Recommendations] ML numbers:', mlNumbers);
+    
     return {
         highConfidence: overlap,
         energyBased: energyNumbers,
         mlBased: mlNumbers,
         powerball: mlPrediction.powerball,
-        summary: `Based on ${state.draws.length} historical draws`
+        summary: `Fallback recommendations based on ${state.draws.length} historical draws`
     };
 }
 
@@ -249,4 +345,8 @@ export async function handleFileUpload(event) {
 document.addEventListener('DOMContentLoaded', () => {
     initUIElements(CONFIG, state);
     initEventListeners();
+    initOptimizationUI();
+    initConfidenceUI();
+    initAccuracyUI();
+    initStrategyBuilder();
 });
