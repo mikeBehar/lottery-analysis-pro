@@ -24,6 +24,20 @@
     <button id="analyzeBtn" disabled>ANALYZE</button>
   </div>
 
+  <div id="progress-status" class="progress-status" style="display: none;">
+    <div class="progress-content">
+      <div class="current-step">
+        <strong>Current Step:</strong> <span id="current-step">Ready</span>
+      </div>
+      <div class="step-info">
+        <span id="step-timestamp">Started: --:--:--</span>
+      </div>
+      <div class="suggested-actions">
+        <strong>Next Actions:</strong> <span id="suggested-actions">Upload CSV data to begin</span>
+      </div>
+    </div>
+  </div>
+
   <div class="panels">
     <section id="energy-panel" class="panel">
       <h2>⚡ Energy Signature Analysis</h2>
@@ -38,6 +52,34 @@
     <section id="recommendations-panel" class="panel">
       <h2>🎯 Recommendations</h2>
       <div id="recommendations" class="results-container"></div>
+    </section>
+
+    <section id="confidence-panel" class="panel">
+      <h2>📊 Confidence Intervals</h2>
+      <p class="panel-description">Position-based predictions with statistical confidence intervals</p>
+      
+      <div class="confidence-controls">
+        <div class="control-row">
+          <label for="confidence-level">Confidence Level:</label>
+          <select id="confidence-level">
+            <option value="0.90">90%</option>
+            <option value="0.95" selected>95%</option>
+            <option value="0.99">99%</option>
+          </select>
+          
+          <label for="confidence-method">Method:</label>
+          <select id="confidence-method">
+            <option value="bootstrap" selected>Bootstrap</option>
+            <option value="time-weighted">Time-weighted</option>
+            <option value="normal">Normal</option>
+          </select>
+          
+          <button id="generate-confidence-prediction" class="confidence-btn">Generate Prediction</button>
+        </div>
+      </div>
+      
+      <div id="confidence-results" class="confidence-results-container"></div>
+      <div id="confidence-stats" class="confidence-stats-container"></div>
     </section>
 
     <section id="optimization-panel" class="panel">
