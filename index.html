@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" sizes="16x16" href="patches/favicon_io/favicon-16x16.png">
-  <title>Lottery Analysis Pro v2.4.2</title>
+  <title>Lottery Analysis Pro v2.5.0</title>
   <link rel="stylesheet" href="styles/main.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
@@ -12,7 +12,7 @@
 </head>
 <body>
   <header>
-    <h1>Lottery Analysis Pro <span class="version">v2.4.2</span></h1>
+    <h1>Lottery Analysis Pro <span class="version">v2.5.0</span></h1>
     <p>Advanced lottery number analysis with energy signatures and AI predictions</p>
   </header>
 
@@ -103,6 +103,67 @@
       </div>
       <div id="optimization-progress" class="optimization-progress" style="display: none;"></div>
       <div id="optimization-results" class="optimization-results"></div>
+    </section>
+
+    <section id="performance-panel" class="panel">
+      <h2>🚀 Performance Mode</h2>
+      <p class="panel-description">Enhanced accuracy testing with automatic server detection and optimization</p>
+      
+      <div class="performance-controls">
+        <div class="control-row">
+          <label for="mode-selector">Execution Mode:</label>
+          <select id="mode-selector">
+            <option value="auto" selected>Auto-detect (Recommended)</option>
+            <option value="browser">Browser Only</option>
+            <option value="server">Server Accelerated</option>
+          </select>
+          
+          <div class="server-toggle">
+            <input type="checkbox" id="server-toggle" checked>
+            <label for="server-toggle">Enable Server Detection</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="server-info">
+        <div class="server-status-row">
+          <span class="label">Server Status:</span>
+          <span id="server-status" class="status-indicator">Checking...</span>
+        </div>
+        
+        <div id="server-capabilities" class="server-capabilities"></div>
+        <div id="performance-metrics" class="performance-metrics"></div>
+      </div>
+
+      <div id="recommendation-panel" class="recommendation-panel">
+        <div class="recommendation-content">
+          <p>Select a dataset to get performance recommendations</p>
+        </div>
+      </div>
+
+      <div class="accuracy-test-section">
+        <button id="run-accuracy-btn" class="accuracy-btn">Run Enhanced Accuracy Test</button>
+        <button id="cancel-accuracy-btn" class="cancel-btn" style="display: none;">Cancel Test</button>
+        
+        <div id="accuracy-progress" class="accuracy-progress" style="display: none;">
+          <div class="progress-header">
+            <h3>Accuracy Testing in Progress</h3>
+            <span class="progress-percentage">0%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill"></div>
+          </div>
+          <div class="progress-details">
+            <span class="current-method">Initializing...</span>
+            <span class="window-info"></span>
+          </div>
+        </div>
+
+        <div id="accuracy-results" class="accuracy-results" style="display: none;">
+          <h3>Accuracy Test Results</h3>
+          <div class="results-content"></div>
+        </div>
+      </div>
     </section>
 
     <section id="strategy-builder" class="panel">

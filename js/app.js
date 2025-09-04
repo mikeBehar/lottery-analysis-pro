@@ -59,6 +59,7 @@ import { initOptimizationUI } from './optimization-ui.js';
 import { initConfidenceUI } from './confidence-ui.js';
 import { initAccuracyUI } from './accuracy-ui.js';
 import { initStrategyBuilder } from './strategy-builder.js';
+import { initPerformanceUI } from './performance-ui.js';
 import progressStatus from './progress-status.js';
 
 // ==================== CONFIG & STATE ==================== //
@@ -349,4 +350,5 @@ document.addEventListener('DOMContentLoaded', () => {
     initConfidenceUI();
     initAccuracyUI();
     initStrategyBuilder();
+    initPerformanceUI();
 });
