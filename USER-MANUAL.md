@@ -1,5 +1,5 @@
 # Lottery Analysis Pro - User Manual
-*Version 2.4.2 | Last Updated: September 3, 2025*
+*Version 2.4.2 | Last Updated: September 4, 2025*
 
 ## Table of Contents
 1. [Getting Started](#getting-started)
@@ -96,6 +96,34 @@ Date,White Ball 1,White Ball 2,White Ball 3,White Ball 4,White Ball 5,Power Ball
 2. **Hot & Cold Mix**: 3 hot numbers + 2 cold numbers
 3. **Overdue Numbers**: Numbers due for appearance
 4. **Pattern Avoidance**: Avoids consecutive numbers and common patterns
+
+### 5. Real-time Progress Tracking
+**Purpose**: Provides live updates during analysis with actionable guidance.
+
+**Display Location**: Appears under the "ANALYZE" button when processing data.
+
+**Information Provided**:
+- **Current Step**: Shows exactly what operation is in progress
+  - "Data loaded" → "Running energy analysis..." → "Energy analysis complete"
+  - Real-time updates as each method completes
+- **Timestamps**: Shows when each step started and elapsed time
+  - Updates every 5 seconds during processing
+  - Format: "Started: 14:23:15 (Elapsed: 00:02:30)"
+- **Suggested Actions**: Context-aware recommendations for next steps
+  - "Run analysis or optimize parameters" (after data upload)
+  - "Check AI predictions next" (after energy analysis)
+  - "Review recommendations or try optimization" (after predictions)
+
+**User Benefits**:
+- **Transparency**: See exactly what the system is doing
+- **Time Management**: Understand how long operations take
+- **Guidance**: Know what to do next without guessing
+- **Error Assistance**: Clear guidance when issues occur
+
+**Error Handling**:
+- Shows specific error messages with suggested solutions
+- Provides guidance for data format issues
+- Offers next steps when operations fail
 
 ---
 
